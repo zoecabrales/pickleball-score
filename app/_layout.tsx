@@ -61,7 +61,7 @@ export default function RootLayout() {
 function BrandSplash() {
   return (
     <View style={styles.splashScreen}>
-      <StatusBar barStyle="light-content" backgroundColor="#173A2B" />
+      <StatusBar barStyle="light-content" />
       <View style={styles.splashBrand}>
         <Image
           accessibilityLabel="Pickle Scorer pickleball and paddle logo"

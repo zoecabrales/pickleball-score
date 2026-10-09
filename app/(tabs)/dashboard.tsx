@@ -78,11 +78,12 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <View style={{ height: insets.top, backgroundColor: COLORS.background }} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(insets.top, 16) + 8 },
+          { paddingTop: 8 },
         ]}
         showsVerticalScrollIndicator={false}
       >
