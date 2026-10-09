@@ -1,20 +1,18 @@
 import { useRef, useState } from "react";
 import {
     Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
     Pressable,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import PlayerNamePicker from "@/components/PlayerNamePicker";
 import { useRankings } from "@/context/RankingContext";
+import { getNextBalancedDoublesTeams } from "@/utils/doubles";
 import {
     getNextDoublesServe,
     getWinningSide,
@@ -23,6 +21,7 @@ import {
 } from "@/utils/scoring";
 
 type MatchMode = "singles" | "doubles";
+type PlayCategory = "session" | "tournament";
 type Side = "a" | "b";
 type PlayerKey = "a1" | "a2" | "b1" | "b2";
 
@@ -40,22 +39,18 @@ const COLORS = {
 };
 
 const initialPlayers: Record<PlayerKey, string> = {
-  a1: "Player 1",
-  a2: "Player 2",
-  b1: "Player 3",
-  b2: "Player 4",
+  a1: "",
+  a2: "",
+  b1: "",
+  b2: "",
 };
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
-  const { isLoaded, recordMatch } = useRankings();
+  const { isLoaded, rankings, registeredPlayers, recordMatch } = useRankings();
+  const [playCategory, setPlayCategory] = useState<PlayCategory>("session");
   const [mode, setMode] = useState<MatchMode>("singles");
   const [players, setPlayers] = useState(initialPlayers);
-  const [editingPlayerKey, setEditingPlayerKey] = useState<PlayerKey | null>(
-    null,
-  );
-  const [playerNameDraft, setPlayerNameDraft] = useState("");
-  const [playerEditError, setPlayerEditError] = useState("");
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [servingSide, setServingSide] = useState<Side>("a");
@@ -71,51 +66,37 @@ export default function PlayScreen() {
   const teamAKeys: PlayerKey[] = mode === "singles" ? ["a1"] : ["a1", "a2"];
   const teamBKeys: PlayerKey[] = mode === "singles" ? ["b1"] : ["b1", "b2"];
   const activeKeys = [...teamAKeys, ...teamBKeys];
+  const isTournament = playCategory === "tournament";
+  const isDoubles = isTournament || mode === "doubles";
+  const balancedTeams = isTournament
+    ? getNextBalancedDoublesTeams(rankings, registeredPlayers)
+    : null;
+  const lineupPlayers = isTournament
+    ? winner
+      ? players
+      : balancedTeams
+        ? {
+            ...players,
+            a1: balancedTeams.teamA[0],
+            a2: balancedTeams.teamA[1],
+            b1: balancedTeams.teamB[0],
+            b2: balancedTeams.teamB[1],
+          }
+        : initialPlayers
+    : players;
   const normalizedNames = activeKeys.map((key) =>
-    players[key].trim().toLocaleLowerCase(),
+    lineupPlayers[key].trim().toLocaleLowerCase(),
   );
   const namesAreValid =
     normalizedNames.every(Boolean) &&
     new Set(normalizedNames).size === normalizedNames.length;
   const extensionAvailable = isExtensionDecision(scoreA, scoreB, target);
   const showExtensionChoice = extensionAvailable && resolvedAtTarget !== target;
-  const isDoubles = mode === "doubles";
+  const canScore =
+    namesAreValid && isLoaded && (!isTournament || Boolean(balancedTeams));
 
   const updatePlayer = (key: PlayerKey, value: string) => {
     setPlayers((current) => ({ ...current, [key]: value }));
-  };
-
-  const openPlayerEditor = (key: PlayerKey) => {
-    setEditingPlayerKey(key);
-    setPlayerNameDraft(players[key]);
-    setPlayerEditError("");
-  };
-
-  const closePlayerEditor = () => {
-    Keyboard.dismiss();
-    setEditingPlayerKey(null);
-    setPlayerEditError("");
-  };
-
-  const savePlayerName = () => {
-    if (!editingPlayerKey) return;
-    const nextName = playerNameDraft.trim();
-    if (!nextName) {
-      setPlayerEditError("Enter a player name.");
-      return;
-    }
-    const normalizedName = nextName.toLocaleLowerCase();
-    const nameIsTaken = activeKeys.some(
-      (key) =>
-        key !== editingPlayerKey &&
-        players[key].trim().toLocaleLowerCase() === normalizedName,
-    );
-    if (nameIsTaken) {
-      setPlayerEditError("Each active player needs a unique name.");
-      return;
-    }
-    updatePlayer(editingPlayerKey, nextName);
-    closePlayerEditor();
   };
 
   const startNewMatch = () => {
@@ -132,8 +113,19 @@ export default function PlayScreen() {
     recordedMatch.current = false;
   };
 
+  const startNextMatch = () => {
+    startNewMatch();
+  };
+
+  const changePlayCategory = (nextCategory: PlayCategory) => {
+    if (started || nextCategory === playCategory) return;
+    setPlayCategory(nextCategory);
+    setMode(nextCategory === "tournament" ? "doubles" : "singles");
+    startNewMatch();
+  };
+
   const changeMode = (nextMode: MatchMode) => {
-    if (started || nextMode === mode) return;
+    if (started || isTournament || nextMode === mode) return;
     setMode(nextMode);
     startNewMatch();
   };
@@ -141,13 +133,13 @@ export default function PlayScreen() {
   const addPoint = (side: Side) => {
     if (
       winner ||
-      !namesAreValid ||
-      !isLoaded ||
+      !canScore ||
       showExtensionChoice ||
       (isDoubles && side !== servingSide)
     )
       return;
     Keyboard.dismiss();
+    if (isTournament && !started) setPlayers(lineupPlayers);
     setStarted(true);
     if (isDoubles) setHasDoublesScored(true);
 
@@ -162,8 +154,8 @@ export default function PlayScreen() {
       if (!recordedMatch.current) {
         recordedMatch.current = true;
         recordMatch({
-          sideA: teamAKeys.map((key) => players[key].trim()),
-          sideB: teamBKeys.map((key) => players[key].trim()),
+          sideA: teamAKeys.map((key) => lineupPlayers[key].trim()),
+          sideB: teamBKeys.map((key) => lineupPlayers[key].trim()),
           scoreA: nextA,
           scoreB: nextB,
         }).catch(() => setSaveError(true));
@@ -199,30 +191,23 @@ export default function PlayScreen() {
   };
 
   const renderPlayerField = (key: PlayerKey, label: string) => (
-    <View key={key} style={styles.playerField}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <Pressable
-        accessibilityLabel={`Edit ${label} name`}
-        accessibilityRole="button"
-        disabled={Boolean(winner)}
-        onPress={() => openPlayerEditor(key)}
-        style={[
-          styles.playerNameButton,
-          Boolean(winner) && styles.playerNameButtonDisabled,
-        ]}
-      >
-        <Text style={styles.playerNameText} numberOfLines={1}>
-          {players[key]}
-        </Text>
-        <Text style={styles.editNameHint}>EDIT</Text>
-      </Pressable>
-    </View>
+    <PlayerNamePicker
+      key={key}
+      disabled={Boolean(winner) || isTournament}
+      label={label}
+      onSelect={(name) => updatePlayer(key, name)}
+      registeredPlayers={registeredPlayers}
+      unavailableNames={activeKeys
+        .filter((activeKey) => activeKey !== key)
+        .map((activeKey) => lineupPlayers[activeKey])}
+      value={lineupPlayers[key]}
+    />
   );
 
   const winningNames =
     winner === "a"
-      ? teamAKeys.map((key) => players[key]).join(" & ")
-      : teamBKeys.map((key) => players[key]).join(" & ");
+      ? teamAKeys.map((key) => lineupPlayers[key]).join(" & ")
+      : teamBKeys.map((key) => lineupPlayers[key]).join(" & ");
 
   return (
     <View style={styles.screen}>
@@ -246,41 +231,82 @@ export default function PlayScreen() {
         </View>
 
         <View style={styles.modeSwitch}>
-          {(["singles", "doubles"] as MatchMode[]).map((option) => (
+          {(["session", "tournament"] as PlayCategory[]).map((option) => (
             <Pressable
               accessibilityRole="button"
               accessibilityState={{
-                selected: mode === option,
+                selected: playCategory === option,
                 disabled: started,
               }}
               disabled={started}
               key={option}
-              onPress={() => changeMode(option)}
+              onPress={() => changePlayCategory(option)}
               style={[
                 styles.modeButton,
-                mode === option && styles.modeButtonActive,
+                playCategory === option && styles.modeButtonActive,
               ]}
             >
               <Text
                 style={[
                   styles.modeText,
-                  mode === option && styles.modeTextActive,
+                  playCategory === option && styles.modeTextActive,
                 ]}
               >
-                {option === "singles" ? "Singles" : "Doubles"}
+                {option === "session" ? "Create Session" : "Tournament"}
               </Text>
             </Pressable>
           ))}
         </View>
 
+        {!isTournament && (
+          <View style={styles.modeSwitch}>
+            {(["singles", "doubles"] as MatchMode[]).map((option) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: mode === option,
+                  disabled: started,
+                }}
+                disabled={started}
+                key={option}
+                onPress={() => changeMode(option)}
+                style={[
+                  styles.modeButton,
+                  mode === option && styles.modeButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeText,
+                    mode === option && styles.modeTextActive,
+                  ]}
+                >
+                  {option === "singles" ? "Singles" : "Doubles"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
         <View style={styles.sectionHeadingRow}>
           <Text style={styles.sectionTitle}>Players</Text>
           <Text style={styles.sectionHint}>
             {started
-              ? "Tap a name to update or sub a player"
-              : "Tap a name to edit · used for rankings"}
+              ? "Tap a name to choose a substitute"
+              : "Tap a name to choose a player"}
           </Text>
         </View>
+
+        {isTournament && (
+          <View style={styles.tournamentStatus}>
+            <Text style={styles.tournamentStatusTitle}>TOURNAMENT LINEUP</Text>
+            <Text style={styles.tournamentStatusText}>
+              {balancedTeams
+                ? `${registeredPlayers.length} registered · balanced by games played and ranking`
+                : "Register at least four players to start a tournament"}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.teamsRow}>
           <View style={styles.teamCard}>
@@ -314,6 +340,42 @@ export default function PlayScreen() {
           </Text>
         )}
 
+        {isDoubles && !started && (
+          <View style={styles.openingServePanel}>
+            <Text style={styles.openingServeTitle}>PLAY FOR SERVE</Text>
+            <View style={styles.openingServeOptions}>
+              {(["a", "b"] as Side[]).map((side) => {
+                const isSelected = servingSide === side;
+                return (
+                  <Pressable
+                    accessibilityLabel={`Team ${side.toUpperCase()} serves first`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    key={side}
+                    onPress={() => {
+                      setServingSide(side);
+                      setServerNumber(2);
+                    }}
+                    style={[
+                      styles.openingServeOption,
+                      isSelected && styles.openingServeOptionActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.openingServeOptionText,
+                        isSelected && styles.openingServeOptionTextActive,
+                      ]}
+                    >
+                      TEAM {side.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <View style={styles.scoreHeader}>
           <View>
             <Text style={styles.sectionTitle}>Match score</Text>
@@ -332,7 +394,7 @@ export default function PlayScreen() {
               <Text style={styles.servingLabel}>SERVING · {serverNumber}</Text>
             )}
             <Text style={styles.teamCaption} numberOfLines={1}>
-              {teamAKeys.map((key) => players[key]).join(" & ")}
+              {teamAKeys.map((key) => lineupPlayers[key]).join(" & ")}
             </Text>
             <Text
               style={[styles.scoreNumber, winner === "a" && styles.winnerScore]}
@@ -351,8 +413,7 @@ export default function PlayScreen() {
               <Pressable
                 accessibilityLabel="Add Team A point"
                 disabled={
-                  !namesAreValid ||
-                  !isLoaded ||
+                  !canScore ||
                   Boolean(winner) ||
                   showExtensionChoice ||
                   (isDoubles && servingSide !== "a")
@@ -361,10 +422,7 @@ export default function PlayScreen() {
                 style={[
                   styles.addButton,
                   styles.addButtonA,
-                  (!namesAreValid ||
-                    !isLoaded ||
-                    Boolean(winner) ||
-                    showExtensionChoice) &&
+                  (!canScore || Boolean(winner) || showExtensionChoice) &&
                     styles.buttonDisabled,
                 ]}
               >
@@ -381,7 +439,7 @@ export default function PlayScreen() {
               <Text style={styles.servingLabel}>SERVING · {serverNumber}</Text>
             )}
             <Text style={styles.teamCaption} numberOfLines={1}>
-              {teamBKeys.map((key) => players[key]).join(" & ")}
+              {teamBKeys.map((key) => lineupPlayers[key]).join(" & ")}
             </Text>
             <Text
               style={[styles.scoreNumber, winner === "b" && styles.winnerScore]}
@@ -400,8 +458,7 @@ export default function PlayScreen() {
               <Pressable
                 accessibilityLabel="Add Team B point"
                 disabled={
-                  !namesAreValid ||
-                  !isLoaded ||
+                  !canScore ||
                   Boolean(winner) ||
                   showExtensionChoice ||
                   (isDoubles && servingSide !== "b")
@@ -410,10 +467,7 @@ export default function PlayScreen() {
                 style={[
                   styles.addButton,
                   styles.addButtonB,
-                  (!namesAreValid ||
-                    !isLoaded ||
-                    Boolean(winner) ||
-                    showExtensionChoice) &&
+                  (!canScore || Boolean(winner) || showExtensionChoice) &&
                     styles.buttonDisabled,
                 ]}
               >
@@ -500,7 +554,7 @@ export default function PlayScreen() {
           </View>
         )}
         {winner && (
-          <Pressable onPress={startNewMatch} style={styles.newMatchButton}>
+          <Pressable onPress={startNextMatch} style={styles.newMatchButton}>
             <Text style={styles.newMatchText}>Start a new match</Text>
           </Pressable>
         )}
@@ -522,66 +576,6 @@ export default function PlayScreen() {
           YOUR SCORES & RANKINGS STAY ON THIS DEVICE
         </Text>
       </ScrollView>
-      <Modal
-        animationType="fade"
-        onRequestClose={closePlayerEditor}
-        statusBarTranslucent
-        transparent
-        visible={editingPlayerKey !== null}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalBackdrop}
-        >
-          <Pressable
-            accessibilityLabel="Close player editor"
-            onPress={closePlayerEditor}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.editPlayerModal}>
-            <Text style={styles.modalEyebrow}>PLAYER LINEUP</Text>
-            <Text style={styles.modalTitle}>Update player</Text>
-            <Text style={styles.modalDescription}>
-              Change the name or enter a substitute. The updated player will be
-              used for this match’s individual ranking.
-            </Text>
-            <TextInput
-              accessibilityLabel="Updated player name"
-              autoCapitalize="words"
-              autoFocus
-              maxLength={24}
-              onChangeText={(value) => {
-                setPlayerNameDraft(value);
-                setPlayerEditError("");
-              }}
-              onSubmitEditing={savePlayerName}
-              placeholder="Player name"
-              placeholderTextColor={COLORS.muted}
-              returnKeyType="done"
-              selectTextOnFocus
-              style={styles.modalNameInput}
-              value={playerNameDraft}
-            />
-            {playerEditError ? (
-              <Text style={styles.modalError}>{playerEditError}</Text>
-            ) : null}
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={closePlayerEditor}
-                style={styles.modalCancelButton}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={savePlayerName}
-                style={styles.modalSaveButton}
-              >
-                <Text style={styles.modalSaveText}>Update player</Text>
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -661,6 +655,66 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   sectionHint: { color: COLORS.muted, fontSize: 10, fontWeight: "600" },
+  openingServePanel: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    padding: 8,
+    marginTop: 12,
+  },
+  openingServeTitle: {
+    flex: 1,
+    color: COLORS.muted,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+  },
+  openingServeOptions: {
+    flexDirection: "row",
+    gap: 4,
+    borderRadius: 9,
+    padding: 3,
+    backgroundColor: "#F1F4F0",
+  },
+  openingServeOption: {
+    minWidth: 66,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 7,
+    paddingHorizontal: 7,
+  },
+  openingServeOptionActive: { backgroundColor: COLORS.green },
+  openingServeOptionText: {
+    color: COLORS.muted,
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  openingServeOptionTextActive: { color: "#FFFFFF" },
+  tournamentStatus: {
+    borderRadius: 12,
+    backgroundColor: COLORS.paleGreen,
+    padding: 12,
+    marginBottom: 10,
+  },
+  tournamentStatusTitle: {
+    color: COLORS.green,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  tournamentStatusText: {
+    color: COLORS.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 3,
+  },
   teamsRow: { flexDirection: "row", gap: 10 },
   teamCard: {
     flex: 1,
@@ -685,114 +739,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     fontWeight: "800",
   },
-  playerField: { marginBottom: 8 },
-  inputLabel: {
-    color: COLORS.muted,
-    fontSize: 9,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  playerNameButton: {
-    height: 39,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 5,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    backgroundColor: "#F5F7F4",
-    borderWidth: 1,
-    borderColor: COLORS.line,
-  },
-  playerNameText: {
-    flex: 1,
-    color: COLORS.ink,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  editNameHint: {
-    color: COLORS.green,
-    fontSize: 8,
-    letterSpacing: 0.5,
-    fontWeight: "900",
-  },
-  modalBackdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: "rgba(12, 30, 22, 0.5)",
-  },
-  editPlayerModal: {
-    width: "100%",
-    maxWidth: 380,
-    borderRadius: 23,
-    padding: 20,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    shadowColor: "#000000",
-    shadowOpacity: 0.15,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  modalEyebrow: {
-    color: COLORS.green,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: "900",
-  },
-  modalTitle: {
-    color: COLORS.ink,
-    fontSize: 23,
-    fontWeight: "800",
-    marginTop: 5,
-  },
-  modalDescription: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 6,
-    marginBottom: 15,
-  },
-  modalNameInput: {
-    height: 39,
-    borderRadius: 11,
-    paddingHorizontal: 12,
-    backgroundColor: "#F5F7F4",
-    color: COLORS.ink,
-    fontSize: 15,
-    fontWeight: "700",
-    borderWidth: 1,
-    borderColor: COLORS.line,
-  },
-  modalError: {
-    color: COLORS.red,
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 7,
-  },
-  modalActions: { flexDirection: "row", gap: 9, marginTop: 17 },
-  modalCancelButton: {
-    flex: 1,
-    height: 45,
-    borderRadius: 13,
-    backgroundColor: "#F1F4F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelText: { color: COLORS.muted, fontSize: 13, fontWeight: "800" },
-  modalSaveButton: {
-    flex: 1,
-    height: 45,
-    borderRadius: 13,
-    backgroundColor: COLORS.green,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalSaveText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
-  playerNameButtonDisabled: { opacity: 0.55 },
   validationText: {
     color: COLORS.red,
     fontSize: 12,

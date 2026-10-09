@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.zoecabrales.picklescorer",
       "adaptiveIcon": {
         "backgroundColor": "#173A2B",
         "foregroundImage": "./assets/images/pickle-scorer-splash.png",
@@ -37,10 +38,27 @@
             "backgroundColor": "#173A2B"
           }
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "gifEnabled": false,
+            "webpEnabled": false
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "33078057-fb87-4098-aadb-b7b3b0565e45"
+      }
     }
   }
 }

@@ -18,6 +18,23 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="players"
+        options={{
+          title: "Players",
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "person.2.fill",
+                android: "people",
+                web: "people",
+              }}
+              tintColor={color}
+              size={23}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: "Play",

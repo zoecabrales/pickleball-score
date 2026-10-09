@@ -38,8 +38,10 @@ type MatchPlayers = {
 type RankingContextValue = {
   rankings: PlayerStats[];
   rankingArchive: RankingArchive[];
+  registeredPlayers: string[];
   totalMatches: number;
   isLoaded: boolean;
+  addRegisteredPlayer: (name: string) => Promise<boolean>;
   recordMatch: (match: MatchPlayers) => Promise<void>;
   resetRankings: () => Promise<void>;
 };
@@ -51,9 +53,19 @@ function getPlayerId(name: string) {
   return name.trim().toLocaleLowerCase();
 }
 
+function getUniquePlayerNames(names: string[]) {
+  const byId = new Map<string, string>();
+  names.forEach((rawName) => {
+    const name = rawName.trim();
+    if (name) byId.set(getPlayerId(name), name);
+  });
+  return [...byId.values()].sort((left, right) => left.localeCompare(right));
+}
+
 export function RankingProvider({ children }: { children: ReactNode }) {
   const [rankings, setRankings] = useState<PlayerStats[]>([]);
   const [rankingArchive, setRankingArchive] = useState<RankingArchive[]>([]);
+  const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -66,6 +78,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         const parsed: unknown = JSON.parse(stored);
         if (isMounted && Array.isArray(parsed)) {
           setRankings(parsed as PlayerStats[]);
+          setRegisteredPlayers(
+            getUniquePlayerNames(
+              parsed.map((player) => (player as PlayerStats).name),
+            ),
+          );
           setTotalMatches(
             Math.max(
               0,
@@ -77,16 +94,37 @@ export function RankingProvider({ children }: { children: ReactNode }) {
             rankings?: unknown;
             totalMatches?: unknown;
             rankingArchive?: unknown;
+            registeredPlayers?: unknown;
           };
+          const savedRankings = Array.isArray(saved.rankings)
+            ? (saved.rankings as PlayerStats[])
+            : [];
+          const savedArchive = Array.isArray(saved.rankingArchive)
+            ? (saved.rankingArchive as RankingArchive[])
+            : [];
           if (Array.isArray(saved.rankings)) {
-            setRankings(saved.rankings as PlayerStats[]);
+            setRankings(savedRankings);
           }
           if (typeof saved.totalMatches === "number") {
             setTotalMatches(saved.totalMatches);
           }
           if (Array.isArray(saved.rankingArchive)) {
-            setRankingArchive(saved.rankingArchive as RankingArchive[]);
+            setRankingArchive(savedArchive);
           }
+          const savedPlayers = Array.isArray(saved.registeredPlayers)
+            ? saved.registeredPlayers.filter(
+                (name): name is string => typeof name === "string",
+              )
+            : [];
+          setRegisteredPlayers(
+            getUniquePlayerNames([
+              ...savedPlayers,
+              ...savedRankings.map((player) => player.name),
+              ...savedArchive.flatMap((archive) =>
+                archive.rankings.map((player) => player.name),
+              ),
+            ]),
+          );
         }
       })
       .catch(() => {
@@ -151,19 +189,53 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         );
       });
       const nextTotalMatches = totalMatches + 1;
+      const nextRegisteredPlayers = getUniquePlayerNames([
+        ...registeredPlayers,
+        ...match.sideA,
+        ...match.sideB,
+      ]);
 
       setRankings(nextRankings);
+      setRegisteredPlayers(nextRegisteredPlayers);
       setTotalMatches(nextTotalMatches);
       await AsyncStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           rankings: nextRankings,
+          registeredPlayers: nextRegisteredPlayers,
           totalMatches: nextTotalMatches,
           rankingArchive,
         }),
       );
     },
-    [rankings, rankingArchive, totalMatches],
+    [rankings, rankingArchive, registeredPlayers, totalMatches],
+  );
+
+  const addRegisteredPlayer = useCallback(
+    async (rawName: string) => {
+      const name = rawName.trim();
+      if (!name) return false;
+      const nextRegisteredPlayers = getUniquePlayerNames([
+        ...registeredPlayers,
+        name,
+      ]);
+      if (nextRegisteredPlayers.length === registeredPlayers.length) {
+        return false;
+      }
+
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rankings,
+          registeredPlayers: nextRegisteredPlayers,
+          totalMatches,
+          rankingArchive,
+        }),
+      );
+      setRegisteredPlayers(nextRegisteredPlayers);
+      return true;
+    },
+    [rankings, registeredPlayers, totalMatches, rankingArchive],
   );
 
   const resetRankings = useCallback(async () => {
@@ -184,6 +256,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       STORAGE_KEY,
       JSON.stringify({
         rankings: [],
+        registeredPlayers,
         totalMatches: 0,
         rankingArchive: nextArchive,
       }),
@@ -191,22 +264,26 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     setRankings([]);
     setRankingArchive(nextArchive);
     setTotalMatches(0);
-  }, [rankings, rankingArchive, totalMatches]);
+  }, [rankings, rankingArchive, registeredPlayers, totalMatches]);
 
   const value = useMemo(
     () => ({
       rankings,
       rankingArchive,
+      registeredPlayers,
       totalMatches,
       isLoaded,
+      addRegisteredPlayer,
       recordMatch,
       resetRankings,
     }),
     [
       rankings,
       rankingArchive,
+      registeredPlayers,
       totalMatches,
       isLoaded,
+      addRegisteredPlayer,
       recordMatch,
       resetRankings,
     ],
