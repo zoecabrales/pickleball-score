@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Palette, useAppTheme } from "@/context/ThemeContext";
+import { useMemo, useState } from "react";
 import {
     Keyboard,
     Modal,
@@ -18,14 +19,6 @@ type PlayerNamePickerProps = {
   onSelect: (name: string) => void;
 };
 
-const COLORS = {
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  line: "#E6EBE6",
-};
-
 function normalizeName(name: string) {
   return name.trim().toLocaleLowerCase();
 }
@@ -38,6 +31,8 @@ export default function PlayerNamePicker({
   disabled = false,
   onSelect,
 }: PlayerNamePickerProps) {
+  const { colors: COLORS } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [visible, setVisible] = useState(false);
   const unavailable = new Set(unavailableNames.map(normalizeName));
   const players = Array.from(
@@ -100,6 +95,7 @@ export default function PlayerNamePicker({
             {players.length > 0 ? (
               <ScrollView
                 keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
                 style={styles.playerList}
               >
                 {players.map((name) => {
@@ -136,7 +132,7 @@ export default function PlayerNamePicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
   playerField: { marginBottom: 8 },
   inputLabel: {
     color: COLORS.muted,

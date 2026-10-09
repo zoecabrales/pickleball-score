@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/components/useColorScheme";
 import { RankingProvider } from "@/context/RankingContext";
+import { AppThemeProvider, useAppTheme } from "@/context/ThemeContext";
 
 export {
     // Catch any errors thrown by the Layout component.
@@ -81,17 +81,25 @@ function BrandSplash() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  return (
+    <AppThemeProvider>
+      <RankingProvider>
+        <ThemedStack />
+      </RankingProvider>
+    </AppThemeProvider>
+  );
+}
+
+function ThemedStack() {
+  const { isDark } = useAppTheme();
 
   return (
-    <RankingProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-        </Stack>
-      </ThemeProvider>
-    </RankingProvider>
+    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+      </Stack>
+    </ThemeProvider>
   );
 }
 

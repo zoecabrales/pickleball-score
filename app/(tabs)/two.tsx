@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     Alert,
     Pressable,
@@ -11,22 +11,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
+import { Palette, useAppTheme } from "@/context/ThemeContext";
 import { getWinPercentage } from "@/utils/scoring";
-
-const COLORS = {
-  background: "#F4F6F1",
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  paleGreen: "#E3F2E9",
-  lime: "#D4F45B",
-  line: "#E6EBE6",
-  navy: "#17342A",
-};
 
 export default function RankingsScreen() {
   const insets = useSafeAreaInsets();
+  const { colors: COLORS, isDark } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { rankings, rankingArchive, totalMatches, isLoaded, resetRankings } =
     useRankings();
   const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(
@@ -106,7 +97,7 @@ export default function RankingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -287,7 +278,7 @@ export default function RankingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingBottom: 34 },
   eyebrow: {
@@ -465,7 +456,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.line,
   },
-  topPlayerRow: { borderColor: "#D9E6C6", backgroundColor: "#FBFDF8" },
+  topPlayerRow: { borderColor: COLORS.green, backgroundColor: COLORS.paleGreen },
   rankNumber: {
     width: 35,
     height: 35,
@@ -488,7 +479,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 5,
   },
-  recordSeparator: { color: "#C5CDC7" },
+  recordSeparator: { color: COLORS.line },
   winRateBlock: { minWidth: 61, alignItems: "flex-end", marginLeft: 8 },
   winRate: {
     color: COLORS.green,
@@ -496,7 +487,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.6,
   },
-  winRateTop: { color: "#68840F" },
+  winRateTop: { color: COLORS.green },
   percentSign: { fontSize: 12 },
   winRateLabel: {
     color: COLORS.muted,
@@ -527,7 +518,7 @@ const styles = StyleSheet.create({
   },
   infoIconText: { color: COLORS.green, fontSize: 15, fontWeight: "900" },
   infoTitle: { color: COLORS.ink, fontSize: 14, fontWeight: "800" },
-  infoText: { color: "#536B5E", fontSize: 11, lineHeight: 17 },
+  infoText: { color: COLORS.muted, fontSize: 11, lineHeight: 17 },
   infoStep: { flexDirection: "row", marginTop: 10 },
   infoStepNumber: {
     width: 20,

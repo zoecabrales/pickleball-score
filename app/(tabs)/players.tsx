@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     Alert,
     Keyboard,
@@ -13,20 +13,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
-
-const COLORS = {
-  background: "#F4F6F1",
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  paleGreen: "#E3F2E9",
-  line: "#E6EBE6",
-  red: "#B74838",
-};
+import { Palette, useAppTheme } from "@/context/ThemeContext";
 
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
+  const { colors: COLORS, isDark } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const {
     registeredPlayers,
     rankings,
@@ -84,7 +76,7 @@ export default function PlayersScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -191,7 +183,7 @@ export default function PlayersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingBottom: 34 },
   eyebrow: {

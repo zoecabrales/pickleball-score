@@ -1,6 +1,4 @@
-import { router } from "expo-router";
 import {
-    Pressable,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -10,22 +8,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
+import { Palette, useAppTheme } from "@/context/ThemeContext";
+import { useMemo } from "react";
+import { getMonthlyHighlights } from "@/utils/monthly";
 import { getWinPercentage } from "@/utils/scoring";
-
-const COLORS = {
-  background: "#F4F6F1",
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  paleGreen: "#E3F2E9",
-  lime: "#D4F45B",
-  line: "#E6EBE6",
-  navy: "#17342A",
-};
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const { colors: COLORS, isDark } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { rankings, rankingArchive, registeredPlayers, totalMatches, isLoaded } =
     useRankings();
 
@@ -36,6 +27,48 @@ export default function DashboardScreen() {
     null,
   );
 
+  const highlights = useMemo(
+    () => getMonthlyHighlights(rankings, rankingArchive),
+    [rankings, rankingArchive],
+  );
+  const record = (p: { wins: number; losses: number }) =>
+    `${p.wins}W · ${p.losses}L`;
+  const margin = (p: { diffPerMatch: number }) =>
+    `${p.diffPerMatch >= 0 ? "+" : ""}${p.diffPerMatch.toFixed(1)} pts/match`;
+  const awards = highlights.champion
+    ? [
+        {
+          icon: "🏆",
+          label: "MONTH CHAMPION",
+          name: highlights.champion.name,
+          note: `${record(highlights.champion)} · ${Math.round(highlights.champion.winRate * 100)}% win rate`,
+        },
+        ...(highlights.mostImproved
+          ? [
+              {
+                icon: "📈",
+                label: "MOST IMPROVED",
+                name: highlights.mostImproved.player.name,
+                note:
+                  highlights.mostImproved.change === null
+                    ? `Early read · ${margin(highlights.mostImproved.player)}`
+                    : `+${Math.round(highlights.mostImproved.change * 100)}% win rate vs before`,
+              },
+            ]
+          : []),
+        ...(highlights.dontSleepOn
+          ? [
+              {
+                icon: "👀",
+                label: "DON'T TAKE FOR GRANTED",
+                name: highlights.dontSleepOn.name,
+                note: `${record(highlights.dontSleepOn)} · ${margin(highlights.dontSleepOn)}`,
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   const stats = [
     { label: "MATCHES TODAY", value: totalMatches },
     { label: "REGISTERED", value: registeredPlayers.length },
@@ -45,7 +78,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -95,36 +128,53 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Quick actions</Text>
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.navigate("/")}
-            style={[styles.actionButton, styles.actionPrimary]}
-          >
-            <Text style={styles.actionPrimaryText}>Start a match</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.navigate("/players")}
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionText}>Manage players</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.navigate("/two")}
-            style={styles.actionButton}
-          >
-            <Text style={styles.actionText}>View rankings</Text>
-          </Pressable>
+        <Text style={styles.sectionTitle}>Monthly highlights</Text>
+        <View style={styles.highlightCard}>
+          <Text style={styles.highlightMonth}>
+            {highlights.monthLabel.toUpperCase()}
+          </Text>
+          {!highlights.champion ? (
+            <Text style={styles.highlightEmpty}>
+              Finish a few matches and this month&apos;s awards will show up
+              here.
+            </Text>
+          ) : (
+            <>
+              {awards.map((award) => (
+                <View key={award.label} style={styles.awardRow}>
+                  <Text style={styles.awardIcon}>{award.icon}</Text>
+                  <View style={styles.awardBody}>
+                    <Text style={styles.awardLabel}>{award.label}</Text>
+                    <Text style={styles.awardName} numberOfLines={1}>
+                      {award.name}
+                    </Text>
+                    <Text style={styles.awardNote}>{award.note}</Text>
+                  </View>
+                </View>
+              ))}
+              {highlights.duo && (
+                <View style={styles.duoBox}>
+                  <Text style={styles.duoLabel}>DYNAMIC DUO</Text>
+                  <Text style={styles.duoNames} numberOfLines={1}>
+                    {highlights.duo[0].name} & {highlights.duo[1].name}
+                  </Text>
+                  <Text style={styles.duoNote}>
+                    {highlights.duo
+                      .map((p) => `${p.name} ${Math.round(p.winRate * 100)}%`)
+                      .join(" · ")}{" "}
+                    win rate
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingBottom: 34 },
   eyebrow: {
@@ -198,17 +248,53 @@ const styles = StyleSheet.create({
     marginTop: 26,
     marginBottom: 12,
   },
-  actions: { gap: 8 },
-  actionButton: {
-    height: 50,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+  highlightCard: {
+    padding: 18,
+    borderRadius: 22,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.line,
   },
-  actionPrimary: { backgroundColor: COLORS.green, borderColor: COLORS.green },
-  actionText: { color: COLORS.ink, fontSize: 13, fontWeight: "800" },
-  actionPrimaryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  highlightMonth: {
+    color: COLORS.green,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.6,
+  },
+  highlightEmpty: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 8,
+  },
+  awardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 16,
+  },
+  awardIcon: { fontSize: 26 },
+  awardBody: { flex: 1 },
+  awardLabel: {
+    color: COLORS.muted,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+  },
+  awardName: { color: COLORS.ink, fontSize: 18, fontWeight: "800", marginTop: 2 },
+  awardNote: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
+  duoBox: {
+    marginTop: 18,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: COLORS.navy,
+  },
+  duoLabel: {
+    color: COLORS.lime,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.6,
+  },
+  duoNames: { color: "#FFFFFF", fontSize: 20, fontWeight: "800", marginTop: 6 },
+  duoNote: { color: "#BFD4C8", fontSize: 12, marginTop: 4 },
 });

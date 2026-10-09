@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
     Alert,
     Pressable,
@@ -12,21 +12,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
-
-const COLORS = {
-  background: "#F4F6F1",
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  line: "#E6EBE6",
-  red: "#B74838",
-  paleRed: "#FBEDEA",
-  borderRed: "#F0D6D1",
-};
+import { Palette, THEMES, useAppTheme } from "@/context/ThemeContext";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { colors: COLORS, isDark, id: themeId, setTheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { wipeAllData, isLoaded, registeredPlayers, rankingArchive, totalMatches } =
     useRankings();
   const [isWiping, setIsWiping] = useState(false);
@@ -72,7 +63,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -82,6 +73,44 @@ export default function SettingsScreen() {
       >
         <Text style={styles.eyebrow}>YOUR COURT · PREFERENCES</Text>
         <Text style={styles.heading}>Settings</Text>
+
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.card}>
+          {THEMES.map((theme, index) => {
+            const selected = theme.id === themeId;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                key={theme.id}
+                onPress={() => setTheme(theme.id)}
+                style={[styles.themeRow, index > 0 && styles.infoRowBorder]}
+              >
+                <View style={styles.swatches}>
+                  <Text style={styles.check}>{selected ? "✓" : ""}</Text>
+                  <Text
+                    style={[styles.themeName, selected && styles.themeNameActive]}
+                  >
+                    {theme.name}
+                  </Text>
+                </View>
+                <View style={styles.swatches}>
+                  {[
+                    theme.colors.background,
+                    theme.colors.green,
+                    theme.colors.navy,
+                    theme.colors.lime,
+                  ].map((color) => (
+                    <View
+                      key={color}
+                      style={[styles.swatch, { backgroundColor: color }]}
+                    />
+                  ))}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
 
         <Text style={styles.sectionTitle}>Stored on this device</Text>
         <View style={styles.card}>
@@ -131,7 +160,24 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
+  themeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+  },
+  themeName: { color: COLORS.ink, fontSize: 14, fontWeight: "800" },
+  themeNameActive: { color: COLORS.green },
+  swatches: { flexDirection: "row", alignItems: "center", gap: 6 },
+  swatch: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  check: { color: COLORS.green, fontSize: 15, fontWeight: "900", width: 18 },
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingBottom: 34 },
   eyebrow: {
@@ -178,7 +224,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderRed,
   },
   dangerTitle: { color: COLORS.red, fontSize: 15, fontWeight: "800" },
-  dangerText: { color: "#7A4A42", fontSize: 12, lineHeight: 18, marginTop: 6 },
+  dangerText: { color: COLORS.ink, fontSize: 12, lineHeight: 18, marginTop: 6 },
   dangerButton: {
     height: 48,
     borderRadius: 13,

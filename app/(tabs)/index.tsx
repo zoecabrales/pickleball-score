@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Keyboard,
     Pressable,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PlayerNamePicker from "@/components/PlayerNamePicker";
 import { useRankings } from "@/context/RankingContext";
+import { Palette, useAppTheme } from "@/context/ThemeContext";
 import { getNextBalancedDoublesTeams } from "@/utils/doubles";
 import {
     getNextDoublesServe,
@@ -25,19 +26,6 @@ type PlayCategory = "session" | "tournament";
 type Side = "a" | "b";
 type PlayerKey = "a1" | "a2" | "b1" | "b2";
 
-const COLORS = {
-  background: "#F4F6F1",
-  card: "#FFFFFF",
-  ink: "#15241E",
-  muted: "#7B8981",
-  green: "#176B4B",
-  paleGreen: "#E3F2E9",
-  lime: "#D4F45B",
-  line: "#E6EBE6",
-  red: "#B74838",
-  navy: "#17342A",
-};
-
 const initialPlayers: Record<PlayerKey, string> = {
   a1: "",
   a2: "",
@@ -47,6 +35,8 @@ const initialPlayers: Record<PlayerKey, string> = {
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
+  const { colors: COLORS, isDark } = useAppTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { isLoaded, rankings, registeredPlayers, recordMatch, wipeCount } =
     useRankings();
   const [playCategory, setPlayCategory] = useState<PlayCategory>("session");
@@ -232,7 +222,7 @@ export default function PlayScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -404,7 +394,7 @@ export default function PlayScreen() {
           </View>
           <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveText}>{winner ? "FINAL" : "LIVE"}</Text>
+            <Text style={styles.liveText}>{winner ? "FINAL" : "Playing Now"}</Text>
           </View>
         </View>
 
@@ -603,7 +593,7 @@ export default function PlayScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingHorizontal: 20, paddingBottom: 32 },
   topRow: {
@@ -1014,7 +1004,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 2,
   },
-  resultSubtitle: { color: "#5E7568", fontSize: 10, marginTop: 2 },
+  resultSubtitle: { color: COLORS.muted, fontSize: 10, marginTop: 2 },
   rulesNote: {
     flexDirection: "row",
     alignItems: "flex-start",
