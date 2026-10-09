@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Pickle Scorer",
+    "slug": "pickle-scorer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/pickle-scorer-icon.png",
+    "scheme": "picklescorer",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#173A2B",
+        "foregroundImage": "./assets/images/pickle-scorer-splash.png",
+        "monochromeImage": "./assets/images/pickle-scorer-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/pickle-scorer-splash.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#173A2B",
+          "dark": {
+            "image": "./assets/images/pickle-scorer-splash.png",
+            "backgroundColor": "#173A2B"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
