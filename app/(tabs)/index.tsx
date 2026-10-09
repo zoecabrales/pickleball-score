@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Keyboard,
     Pressable,
@@ -47,14 +47,15 @@ const initialPlayers: Record<PlayerKey, string> = {
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
-  const { isLoaded, rankings, registeredPlayers, recordMatch } = useRankings();
+  const { isLoaded, rankings, registeredPlayers, recordMatch, wipeCount } =
+    useRankings();
   const [playCategory, setPlayCategory] = useState<PlayCategory>("session");
   const [mode, setMode] = useState<MatchMode>("singles");
   const [players, setPlayers] = useState(initialPlayers);
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [servingSide, setServingSide] = useState<Side>("a");
-  const [serverNumber, setServerNumber] = useState<ServerNumber>(2);
+  const [serverNumber, setServerNumber] = useState<ServerNumber>(1);
   const [hasDoublesScored, setHasDoublesScored] = useState(false);
   const [target, setTarget] = useState(11);
   const [resolvedAtTarget, setResolvedAtTarget] = useState<number | null>(null);
@@ -103,7 +104,7 @@ export default function PlayScreen() {
     setScoreA(0);
     setScoreB(0);
     setServingSide("a");
-    setServerNumber(2);
+    setServerNumber(1);
     setHasDoublesScored(false);
     setTarget(11);
     setResolvedAtTarget(null);
@@ -116,6 +117,26 @@ export default function PlayScreen() {
   const startNextMatch = () => {
     startNewMatch();
   };
+
+  const lastWipeCount = useRef(wipeCount);
+  useEffect(() => {
+    if (lastWipeCount.current === wipeCount) return;
+    lastWipeCount.current = wipeCount;
+    setPlayers(initialPlayers);
+    setPlayCategory("session");
+    setMode("singles");
+    setScoreA(0);
+    setScoreB(0);
+    setServingSide("a");
+    setServerNumber(1);
+    setHasDoublesScored(false);
+    setTarget(11);
+    setResolvedAtTarget(null);
+    setWinner(null);
+    setStarted(false);
+    setSaveError(false);
+    recordedMatch.current = false;
+  }, [wipeCount]);
 
   const changePlayCategory = (nextCategory: PlayCategory) => {
     if (started || nextCategory === playCategory) return;
@@ -354,7 +375,7 @@ export default function PlayScreen() {
                     key={side}
                     onPress={() => {
                       setServingSide(side);
-                      setServerNumber(2);
+                      setServerNumber(1);
                     }}
                     style={[
                       styles.openingServeOption,
@@ -485,7 +506,10 @@ export default function PlayScreen() {
                 Team {servingSide.toUpperCase()} · Server {serverNumber}
               </Text>
               <Text style={styles.serveNotation}>
-                {scoreA} – {scoreB} – {serverNumber}
+                {servingSide === "a"
+                  ? `${scoreA} – ${scoreB}`
+                  : `${scoreB} – ${scoreA}`}{" "}
+                – {serverNumber}
               </Text>
             </View>
             <Pressable
@@ -565,7 +589,6 @@ export default function PlayScreen() {
         )}
 
         <View style={styles.rulesNote}>
-          <Text style={styles.rulesIcon}>✦</Text>
           <Text style={styles.rulesText}>
             At 10–10, choose to finish at 11 or extend to 15. At 14–14, choose
             to finish at 15 or extend to 21.
@@ -998,12 +1021,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 16,
     paddingHorizontal: 4,
-  },
-  rulesIcon: {
-    color: COLORS.green,
-    fontSize: 14,
-    fontWeight: "900",
-    marginTop: 1,
   },
   rulesText: { flex: 1, color: COLORS.muted, fontSize: 11, lineHeight: 16 },
   newMatchButton: {

@@ -13,8 +13,8 @@
     "android": {
       "package": "com.zoecabrales.picklescorer",
       "adaptiveIcon": {
-        "backgroundColor": "#173A2B",
-        "foregroundImage": "./assets/images/pickle-scorer-splash.png",
+        "backgroundColor": "#0D3D29",
+        "foregroundImage": "./assets/images/pickle-scorer-adaptive-foreground.png",
         "monochromeImage": "./assets/images/pickle-scorer-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -32,10 +32,10 @@
           "image": "./assets/images/pickle-scorer-splash.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#173A2B",
+          "backgroundColor": "#0D3D29",
           "dark": {
             "image": "./assets/images/pickle-scorer-splash.png",
-            "backgroundColor": "#173A2B"
+            "backgroundColor": "#0D3D29"
           }
         }
       ],

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+    Alert,
     Keyboard,
     Pressable,
     ScrollView,
@@ -26,10 +27,35 @@ const COLORS = {
 
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
-  const { registeredPlayers, addRegisteredPlayer, isLoaded } = useRankings();
+  const {
+    registeredPlayers,
+    rankings,
+    addRegisteredPlayer,
+    removeRegisteredPlayer,
+    isLoaded,
+  } = useRankings();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const confirmRemove = (name: string) => {
+    Alert.alert(
+      `Remove ${name}?`,
+      "They will no longer appear in the player picker. Their ranking history is kept.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            void removeRegisteredPlayer(name).catch(() => {
+              Alert.alert("Could not remove player", "Please try again.");
+            });
+          },
+        },
+      ],
+    );
+  };
 
   const registerPlayer = async () => {
     const name = draft.trim();
@@ -69,9 +95,13 @@ export default function PlayersScreen() {
       >
         <Text style={styles.eyebrow}>YOUR COURT · PLAYER ROSTER</Text>
         <Text style={styles.heading}>Players</Text>
-        <Text style={styles.count}>{registeredPlayers.length} registered</Text>
+        <Text style={styles.count}>
+          Register players here to pick them quickly when starting a match.
+        </Text>
 
-        <View style={styles.entryRow}>
+        <View style={styles.entryCard}>
+          <Text style={styles.entryLabel}>ADD A NEW PLAYER</Text>
+          <View style={styles.entryRow}>
           <TextInput
             accessibilityLabel="Player name"
             autoCapitalize="words"
@@ -101,31 +131,59 @@ export default function PlayersScreen() {
           </Pressable>
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
 
         <View style={styles.listHeader}>
           <Text style={styles.listTitle}>Registered players</Text>
-          <Text style={styles.listCount}>{registeredPlayers.length}</Text>
+          <View style={styles.listCountBadge}>
+            <Text style={styles.listCount}>{registeredPlayers.length}</Text>
+          </View>
         </View>
 
         {!isLoaded ? (
           <Text style={styles.emptyMessage}>Loading players…</Text>
         ) : registeredPlayers.length === 0 ? (
-          <Text style={styles.emptyMessage}>No players registered yet.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No players yet</Text>
+            <Text style={styles.emptyMessage}>
+              Add your first player above to get started.
+            </Text>
+          </View>
         ) : (
           <View style={styles.playerList}>
-            {registeredPlayers.map((name, index) => (
-              <View key={name.toLocaleLowerCase()} style={styles.playerRow}>
-                <Text style={styles.playerIndex}>
-                  {String(index + 1).padStart(2, "0")}
-                </Text>
-                <Text style={styles.playerName} numberOfLines={1}>
-                  {name}
-                </Text>
-                <View style={styles.registeredMark}>
-                  <Text style={styles.registeredMarkText}>READY</Text>
+            {registeredPlayers.map((name) => {
+              const stats = rankings.find(
+                (player) => player.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+              );
+              return (
+                <View key={name.toLocaleLowerCase()} style={styles.playerRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {name.trim().charAt(0).toLocaleUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Text style={styles.playerRecord}>
+                      {stats
+                        ? `${stats.wins}W · ${stats.losses}L today`
+                        : "No matches yet"}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityLabel={`Remove ${name}`}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => confirmRemove(name)}
+                    style={styles.removeButton}
+                  >
+                    <Text style={styles.removeButtonText}>Remove</Text>
+                  </Pressable>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -149,15 +207,30 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     fontWeight: "800",
   },
-  count: { color: COLORS.muted, fontSize: 13, marginTop: 4 },
-  entryRow: { flexDirection: "row", gap: 8, marginTop: 22 },
+  count: { color: COLORS.muted, fontSize: 13, marginTop: 4, lineHeight: 19 },
+  entryCard: {
+    marginTop: 22,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  entryLabel: {
+    color: COLORS.green,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+    marginBottom: 10,
+  },
+  entryRow: { flexDirection: "row", gap: 8 },
   nameInput: {
     flex: 1,
     minWidth: 0,
     height: 46,
-    borderRadius: 11,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     color: COLORS.ink,
     fontSize: 14,
     fontWeight: "600",
@@ -167,7 +240,7 @@ const styles = StyleSheet.create({
   addButton: {
     minWidth: 104,
     height: 46,
-    borderRadius: 11,
+    borderRadius: 12,
     paddingHorizontal: 12,
     backgroundColor: COLORS.green,
     alignItems: "center",
@@ -175,49 +248,70 @@ const styles = StyleSheet.create({
   },
   addButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
   disabledButton: { opacity: 0.5 },
-  error: { color: COLORS.red, fontSize: 12, marginTop: 8 },
+  error: { color: COLORS.red, fontSize: 12, marginTop: 10 },
   listHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 30,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.line,
+    marginTop: 28,
+    marginBottom: 12,
   },
   listTitle: { color: COLORS.ink, fontSize: 16, fontWeight: "800" },
-  listCount: { color: COLORS.muted, fontSize: 12, fontWeight: "700" },
-  playerList: { backgroundColor: COLORS.card },
+  listCountBadge: {
+    minWidth: 26,
+    alignItems: "center",
+    borderRadius: 13,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: COLORS.paleGreen,
+  },
+  listCount: { color: COLORS.green, fontSize: 12, fontWeight: "800" },
+  playerList: { gap: 8 },
   playerRow: {
-    minHeight: 55,
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.line,
-    paddingHorizontal: 4,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  playerIndex: {
-    width: 25,
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  playerName: { flex: 1, color: COLORS.ink, fontSize: 14, fontWeight: "700" },
-  registeredMark: {
-    borderRadius: 20,
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: COLORS.paleGreen,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  registeredMarkText: {
-    color: COLORS.green,
-    fontSize: 8,
-    fontWeight: "900",
+  avatarText: { color: COLORS.green, fontSize: 16, fontWeight: "900" },
+  playerInfo: { flex: 1, minWidth: 0 },
+  playerName: { color: COLORS.ink, fontSize: 14, fontWeight: "700" },
+  playerRecord: { color: COLORS.muted, fontSize: 11, marginTop: 2 },
+  removeButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F0D6D1",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
+  removeButtonText: { color: COLORS.red, fontSize: 11, fontWeight: "800" },
+  emptyCard: {
+    alignItems: "center",
+    padding: 24,
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  emptyTitle: { color: COLORS.ink, fontSize: 15, fontWeight: "800" },
   emptyMessage: {
     color: COLORS.muted,
     fontSize: 13,
-    marginTop: 16,
+    marginTop: 6,
+    textAlign: "center",
   },
 });

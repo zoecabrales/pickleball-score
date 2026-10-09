@@ -18,6 +18,23 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: "Dashboard",
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "square.grid.2x2.fill",
+                android: "dashboard",
+                web: "dashboard",
+              }}
+              tintColor={color}
+              size={23}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="players"
         options={{
           title: "Players",
@@ -61,6 +78,23 @@ export default function TabLayout() {
                 ios: "trophy.fill",
                 android: "emoji_events",
                 web: "emoji_events",
+              }}
+              tintColor={color}
+              size={23}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "gearshape.fill",
+                android: "settings",
+                web: "settings",
               }}
               tintColor={color}
               size={23}

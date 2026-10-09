@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
     Alert,
     Pressable,
@@ -28,6 +29,9 @@ export default function RankingsScreen() {
   const insets = useSafeAreaInsets();
   const { rankings, rankingArchive, totalMatches, isLoaded, resetRankings } =
     useRankings();
+  const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(
+    null,
+  );
 
   const confirmReset = () => {
     Alert.alert(
@@ -172,36 +176,57 @@ export default function RankingsScreen() {
                 {rankingArchive.length} saved
               </Text>
             </View>
-            {rankingArchive.map((snapshot) => (
-              <View key={snapshot.id} style={styles.archiveCard}>
-                <View style={styles.archiveCardHeader}>
-                  <View>
-                    <Text style={styles.archiveDate}>
-                      {new Date(snapshot.savedAt).toLocaleDateString(
-                        undefined,
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
-                    </Text>
-                    <Text style={styles.archiveMeta}>
-                      {snapshot.totalMatches}{" "}
-                      {snapshot.totalMatches === 1 ? "match" : "matches"}
+            {rankingArchive.map((snapshot) => {
+              const isExpanded = expandedArchiveId === snapshot.id;
+              const topPlayer = snapshot.rankings[0];
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isExpanded }}
+                  key={snapshot.id}
+                  onPress={() =>
+                    setExpandedArchiveId(isExpanded ? null : snapshot.id)
+                  }
+                  style={styles.archiveCard}
+                >
+                  <View
+                    style={[
+                      styles.archiveCardHeader,
+                      isExpanded && styles.archiveCardHeaderExpanded,
+                    ]}
+                  >
+                    <View style={styles.archiveSummary}>
+                      <Text style={styles.archiveDate}>
+                        {new Date(snapshot.savedAt).toLocaleDateString(
+                          undefined,
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
+                      </Text>
+                      <Text style={styles.archiveMeta} numberOfLines={1}>
+                        {snapshot.totalMatches}{" "}
+                        {snapshot.totalMatches === 1 ? "match" : "matches"}
+                        {topPlayer ? ` · 🏆 ${topPlayer.name}` : ""}
+                      </Text>
+                    </View>
+                    <Text style={styles.archiveChevron}>
+                      {isExpanded ? "▲" : "▼"}
                     </Text>
                   </View>
-                  <Text style={styles.archiveLabel}>DAY COMPLETE</Text>
-                </View>
-                {snapshot.rankings.length > 0 ? (
-                  renderRankingRows(snapshot.rankings)
-                ) : (
-                  <Text style={styles.archiveEmpty}>
-                    No player results saved.
-                  </Text>
-                )}
-              </View>
-            ))}
+                  {isExpanded &&
+                    (snapshot.rankings.length > 0 ? (
+                      renderRankingRows(snapshot.rankings)
+                    ) : (
+                      <Text style={styles.archiveEmpty}>
+                        No player results saved.
+                      </Text>
+                    ))}
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -213,9 +238,47 @@ export default function RankingsScreen() {
             <Text style={styles.infoTitle}>How rankings work</Text>
           </View>
           <Text style={styles.infoText}>
-            Rankings sort by win percentage, then total wins. In doubles, every
-            player on the winning team gets a win and every opponent gets a
-            loss. Your match records stay offline on this device.
+            The #1 player is the one who wins the highest share of their
+            matches.
+          </Text>
+          {[
+            [
+              "1",
+              "Every match counts for each player.",
+              "Winners get 1 win, losers get 1 loss. In doubles, both partners share the result.",
+            ],
+            [
+              "2",
+              "Win rate decides the order.",
+              "Win rate = wins ÷ matches played. 3 wins in 4 matches is 75%.",
+            ],
+            [
+              "3",
+              "Ties go to the player with more wins.",
+              "If two players have the same win rate, the one with more total wins ranks higher.",
+            ],
+            [
+              "4",
+              "Still tied? Names break it.",
+              "Players with the same win rate and wins are listed alphabetically.",
+            ],
+          ].map(([step, title, detail]) => (
+            <View key={step} style={styles.infoStep}>
+              <View style={styles.infoStepNumber}>
+                <Text style={styles.infoStepNumberText}>{step}</Text>
+              </View>
+              <View style={styles.infoStepBody}>
+                <Text style={styles.infoStepTitle}>{title}</Text>
+                <Text style={styles.infoText}>{detail}</Text>
+              </View>
+            </View>
+          ))}
+          <Text style={styles.infoExample}>
+            Example: Ana is 2–0 (100%) and Ben is 5–1 (83%). Ana ranks higher
+            because her win rate is higher, even though Ben has more wins.
+          </Text>
+          <Text style={styles.infoText}>
+            Your match records stay offline on this device.
           </Text>
         </View>
         <Text style={styles.footer}>NO ACCOUNT · NO INTERNET · JUST PLAY</Text>
@@ -368,8 +431,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 3,
-    paddingBottom: 10,
+    paddingVertical: 4,
   },
+  archiveCardHeaderExpanded: { paddingBottom: 10 },
+  archiveSummary: { flex: 1, marginRight: 10 },
+  archiveChevron: { color: COLORS.green, fontSize: 11, fontWeight: "900" },
   archiveDate: { color: COLORS.ink, fontSize: 13, fontWeight: "800" },
   archiveMeta: { color: COLORS.muted, fontSize: 10, marginTop: 2 },
   archiveLabel: {
@@ -462,6 +528,29 @@ const styles = StyleSheet.create({
   infoIconText: { color: COLORS.green, fontSize: 15, fontWeight: "900" },
   infoTitle: { color: COLORS.ink, fontSize: 14, fontWeight: "800" },
   infoText: { color: "#536B5E", fontSize: 11, lineHeight: 17 },
+  infoStep: { flexDirection: "row", marginTop: 10 },
+  infoStepNumber: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.green,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    marginTop: 1,
+  },
+  infoStepNumberText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  infoStepBody: { flex: 1 },
+  infoStepTitle: { color: COLORS.ink, fontSize: 12, fontWeight: "800" },
+  infoExample: {
+    color: COLORS.ink,
+    backgroundColor: COLORS.paleGreen,
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 12,
+    fontSize: 11,
+    lineHeight: 17,
+  },
   footer: {
     textAlign: "center",
     color: "#98A39C",

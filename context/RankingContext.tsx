@@ -42,8 +42,11 @@ type RankingContextValue = {
   totalMatches: number;
   isLoaded: boolean;
   addRegisteredPlayer: (name: string) => Promise<boolean>;
+  removeRegisteredPlayer: (name: string) => Promise<void>;
   recordMatch: (match: MatchPlayers) => Promise<void>;
   resetRankings: () => Promise<void>;
+  wipeAllData: () => Promise<void>;
+  wipeCount: number;
 };
 
 const STORAGE_KEY = "pickleball-score:individual-rankings:v1";
@@ -68,6 +71,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [wipeCount, setWipeCount] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -238,6 +242,28 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     [rankings, registeredPlayers, totalMatches, rankingArchive],
   );
 
+  const removeRegisteredPlayer = useCallback(
+    async (rawName: string) => {
+      const id = getPlayerId(rawName);
+      const nextRegisteredPlayers = registeredPlayers.filter(
+        (name) => getPlayerId(name) !== id,
+      );
+      if (nextRegisteredPlayers.length === registeredPlayers.length) return;
+
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rankings,
+          registeredPlayers: nextRegisteredPlayers,
+          totalMatches,
+          rankingArchive,
+        }),
+      );
+      setRegisteredPlayers(nextRegisteredPlayers);
+    },
+    [rankings, registeredPlayers, totalMatches, rankingArchive],
+  );
+
   const resetRankings = useCallback(async () => {
     const nextArchive =
       rankings.length > 0 || totalMatches > 0
@@ -266,6 +292,15 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     setTotalMatches(0);
   }, [rankings, rankingArchive, registeredPlayers, totalMatches]);
 
+  const wipeAllData = useCallback(async () => {
+    await AsyncStorage.clear();
+    setRankings([]);
+    setRankingArchive([]);
+    setRegisteredPlayers([]);
+    setTotalMatches(0);
+    setWipeCount((count) => count + 1);
+  }, []);
+
   const value = useMemo(
     () => ({
       rankings,
@@ -274,8 +309,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       totalMatches,
       isLoaded,
       addRegisteredPlayer,
+      removeRegisteredPlayer,
       recordMatch,
       resetRankings,
+      wipeAllData,
+      wipeCount,
     }),
     [
       rankings,
@@ -284,8 +322,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       totalMatches,
       isLoaded,
       addRegisteredPlayer,
+      removeRegisteredPlayer,
       recordMatch,
       resetRankings,
+      wipeAllData,
+      wipeCount,
     ],
   );
 

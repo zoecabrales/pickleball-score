@@ -1,0 +1,200 @@
+import Constants from "expo-constants";
+import { useState } from "react";
+import {
+    Alert,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useRankings } from "@/context/RankingContext";
+
+const COLORS = {
+  background: "#F4F6F1",
+  card: "#FFFFFF",
+  ink: "#15241E",
+  muted: "#7B8981",
+  green: "#176B4B",
+  line: "#E6EBE6",
+  red: "#B74838",
+  paleRed: "#FBEDEA",
+  borderRed: "#F0D6D1",
+};
+
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const { wipeAllData, isLoaded, registeredPlayers, rankingArchive, totalMatches } =
+    useRankings();
+  const [isWiping, setIsWiping] = useState(false);
+
+  const runWipe = async () => {
+    setIsWiping(true);
+    try {
+      await wipeAllData();
+      Alert.alert("All data cleared", "The app is now back to a clean slate.");
+    } catch {
+      Alert.alert("Could not clear data", "Nothing was changed. Please try again.");
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
+  const confirmWipe = () => {
+    Alert.alert(
+      "Erase everything?",
+      "This deletes all players, rankings, saved days and cached data on this device. It cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert(
+              "Are you absolutely sure?",
+              "Last chance. Everything will be permanently erased.",
+              [
+                { text: "Keep my data", style: "cancel" },
+                {
+                  text: "Erase all data",
+                  style: "destructive",
+                  onPress: () => void runWipe(),
+                },
+              ],
+            ),
+        },
+      ],
+    );
+  };
+
+  return (
+    <View style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(insets.top, 16) + 8 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.eyebrow}>YOUR COURT · PREFERENCES</Text>
+        <Text style={styles.heading}>Settings</Text>
+
+        <Text style={styles.sectionTitle}>Stored on this device</Text>
+        <View style={styles.card}>
+          {[
+            ["Registered players", registeredPlayers.length],
+            ["Matches on current ladder", totalMatches],
+            ["Saved ranking days", rankingArchive.length],
+          ].map(([label, value], index) => (
+            <View
+              key={label}
+              style={[styles.infoRow, index > 0 && styles.infoRowBorder]}
+            >
+              <Text style={styles.infoLabel}>{label}</Text>
+              <Text style={styles.infoValue}>{value}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>Danger zone</Text>
+        <View style={styles.dangerCard}>
+          <Text style={styles.dangerTitle}>Reset & clear all data</Text>
+          <Text style={styles.dangerText}>
+            Clears the cache and wipes everything clean: players, current
+            rankings, previous rankings and any in-progress match. Use this to
+            start completely fresh.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!isLoaded || isWiping}
+            onPress={confirmWipe}
+            style={[
+              styles.dangerButton,
+              (!isLoaded || isWiping) && styles.disabled,
+            ]}
+          >
+            <Text style={styles.dangerButtonText}>
+              {isWiping ? "Erasing…" : "Erase all data"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.footer}>
+          PICKLE SCORER · v{Constants.expoConfig?.version ?? "1.0.0"}
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: COLORS.background },
+  content: { paddingHorizontal: 20, paddingBottom: 34 },
+  eyebrow: {
+    color: COLORS.green,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: "800",
+    marginBottom: 6,
+  },
+  heading: {
+    color: COLORS.ink,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: "800",
+  },
+  sectionTitle: {
+    color: COLORS.ink,
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 26,
+    marginBottom: 12,
+  },
+  card: {
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: 16,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  infoRowBorder: { borderTopWidth: 1, borderTopColor: COLORS.line },
+  infoLabel: { color: COLORS.muted, fontSize: 13 },
+  infoValue: { color: COLORS.ink, fontSize: 14, fontWeight: "800" },
+  dangerCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: COLORS.paleRed,
+    borderWidth: 1,
+    borderColor: COLORS.borderRed,
+  },
+  dangerTitle: { color: COLORS.red, fontSize: 15, fontWeight: "800" },
+  dangerText: { color: "#7A4A42", fontSize: 12, lineHeight: 18, marginTop: 6 },
+  dangerButton: {
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: COLORS.red,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  dangerButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  disabled: { opacity: 0.5 },
+  footer: {
+    color: COLORS.muted,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.3,
+    textAlign: "center",
+    marginTop: 30,
+  },
+});
