@@ -16,6 +16,15 @@ function compareSkill(left: PlayerStats, right: PlayerStats) {
   );
 }
 
+function shuffle<T>(items: T[], random: () => number) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
 function selectBalancedPlayers(players: PlayerStats[], count: number) {
   const rankedPlayers = [...players].sort(compareSkill);
   if (count >= rankedPlayers.length) return rankedPlayers;
@@ -33,6 +42,7 @@ function selectBalancedPlayers(players: PlayerStats[], count: number) {
 export function getNextBalancedDoublesTeams(
   rankings: PlayerStats[],
   registeredPlayerNames: string[] = [],
+  random: () => number = Math.random,
 ): BalancedDoublesTeams | null {
   const playersById = new Map<string, PlayerStats>();
   registeredPlayerNames.forEach((rawName) => {
@@ -75,11 +85,24 @@ export function getNextBalancedDoublesTeams(
   for (const matchCount of matchCounts) {
     const group = byMatchCount.get(matchCount) ?? [];
     const remainingSlots = 4 - selectedPlayers.length;
-    selectedPlayers.push(...selectBalancedPlayers(group, remainingSlots));
+    // Players without a recorded match have no skill signal yet, so pick randomly.
+    selectedPlayers.push(
+      ...(matchCount === 0
+        ? shuffle(group, random).slice(0, remainingSlots)
+        : selectBalancedPlayers(group, remainingSlots)),
+    );
     if (selectedPlayers.length === 4) break;
   }
 
   if (selectedPlayers.length < 4) return null;
+
+  if (selectedPlayers.every((player) => player.matches === 0)) {
+    const [first, second, third, fourth] = shuffle(selectedPlayers, random);
+    return {
+      teamA: [first.name, second.name],
+      teamB: [third.name, fourth.name],
+    };
+  }
 
   const [strongest, secondStrongest, strongestDeveloping, secondDeveloping] =
     selectedPlayers.sort(compareSkill);

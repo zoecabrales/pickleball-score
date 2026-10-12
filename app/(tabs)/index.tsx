@@ -37,8 +37,14 @@ export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const { colors: COLORS, isDark } = useAppTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { isLoaded, rankings, registeredPlayers, recordMatch, wipeCount } =
-    useRankings();
+  const {
+    isLoaded,
+    rankings,
+    registeredPlayers,
+    recordMatch,
+    totalMatches,
+    wipeCount,
+  } = useRankings();
   const [playCategory, setPlayCategory] = useState<PlayCategory>("session");
   const [mode, setMode] = useState<MatchMode>("singles");
   const [players, setPlayers] = useState(initialPlayers);
@@ -59,9 +65,14 @@ export default function PlayScreen() {
   const activeKeys = [...teamAKeys, ...teamBKeys];
   const isTournament = playCategory === "tournament";
   const isDoubles = isTournament || mode === "doubles";
-  const balancedTeams = isTournament
-    ? getNextBalancedDoublesTeams(rankings, registeredPlayers)
-    : null;
+  // Memoized so the random first-round lineup stays stable while scoring.
+  const balancedTeams = useMemo(
+    () =>
+      isTournament
+        ? getNextBalancedDoublesTeams(rankings, registeredPlayers)
+        : null,
+    [isTournament, rankings, registeredPlayers],
+  );
   const lineupPlayers = isTournament
     ? winner
       ? players
@@ -314,7 +325,7 @@ export default function PlayScreen() {
             <Text style={styles.tournamentStatusTitle}>TOURNAMENT LINEUP</Text>
             <Text style={styles.tournamentStatusText}>
               {balancedTeams
-                ? `${registeredPlayers.length} registered · balanced by games played and ranking`
+                ? `${registeredPlayers.length} registered · ${totalMatches === 0 ? "random first lineup" : "balanced by games played and ranking"}`
                 : "Register at least four players to start a tournament"}
             </Text>
           </View>
