@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
 
+const MIN_DUO_MATCHES = 3;
+
 export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
   const { colors: COLORS, isDark } = useAppTheme();
@@ -22,6 +24,7 @@ export default function PlayersScreen() {
   const {
     registeredPlayers,
     rankings,
+    duos,
     addRegisteredPlayer,
     removeRegisteredPlayer,
     isLoaded,
@@ -29,6 +32,33 @@ export default function PlayersScreen() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isListOpen, setIsListOpen] = useState(true);
+  const [isDuosOpen, setIsDuosOpen] = useState(true);
+
+  const rankedDuos = useMemo(() => {
+    const rate = (duo: (typeof duos)[number]) => duo.wins / duo.matches;
+    const sorted = duos
+      .filter((duo) => duo.matches > 0)
+      .map((duo) => ({ ...duo, provisional: duo.matches < MIN_DUO_MATCHES }))
+      .sort(
+        (left, right) =>
+          Number(left.provisional) - Number(right.provisional) ||
+          rate(right) - rate(left) ||
+          right.wins - left.wins ||
+          left.names.join().localeCompare(right.names.join()),
+      );
+    const ranked: ((typeof sorted)[number] & { rank: number })[] = [];
+    sorted.forEach((duo, index) => {
+      const previous = ranked[index - 1];
+      const tied =
+        previous &&
+        previous.provisional === duo.provisional &&
+        previous.wins === duo.wins &&
+        previous.matches === duo.matches;
+      ranked.push({ ...duo, rank: tied ? previous.rank : index + 1 });
+    });
+    return ranked;
+  }, [duos]);
 
   const confirmRemove = (name: string) => {
     Alert.alert(
@@ -126,14 +156,23 @@ export default function PlayersScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         </View>
 
-        <View style={styles.listHeader}>
+        <Pressable
+          accessibilityLabel={`${isListOpen ? "Collapse" : "Expand"} registered players`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isListOpen }}
+          onPress={() => setIsListOpen((open) => !open)}
+          style={styles.listHeader}
+        >
           <Text style={styles.listTitle}>Registered players</Text>
-          <View style={styles.listCountBadge}>
-            <Text style={styles.listCount}>{registeredPlayers.length}</Text>
+          <View style={styles.listHeaderRight}>
+            <View style={styles.listCountBadge}>
+              <Text style={styles.listCount}>{registeredPlayers.length}</Text>
+            </View>
+            <Text style={styles.listChevron}>{isListOpen ? "▲" : "▼"}</Text>
           </View>
-        </View>
+        </Pressable>
 
-        {!isLoaded ? (
+        {!isListOpen ? null : !isLoaded ? (
           <Text style={styles.emptyMessage}>Loading players…</Text>
         ) : registeredPlayers.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -179,6 +218,55 @@ export default function PlayersScreen() {
             })}
           </View>
         )}
+
+        <Pressable
+          accessibilityLabel={`${isDuosOpen ? "Collapse" : "Expand"} top duos`}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isDuosOpen }}
+          onPress={() => setIsDuosOpen((open) => !open)}
+          style={styles.listHeader}
+        >
+          <Text style={styles.listTitle}>Top duos</Text>
+          <View style={styles.listHeaderRight}>
+            <View style={styles.listCountBadge}>
+              <Text style={styles.listCount}>{rankedDuos.length}</Text>
+            </View>
+            <Text style={styles.listChevron}>{isDuosOpen ? "▲" : "▼"}</Text>
+          </View>
+        </Pressable>
+
+        {isDuosOpen &&
+          (rankedDuos.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No duos yet</Text>
+              <Text style={styles.emptyMessage}>
+                Partners from doubles matches appear here. Pairs need{" "}
+                {MIN_DUO_MATCHES}+ matches together to rank.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.playerList}>
+              {rankedDuos.map((duo) => (
+                <View key={duo.id} style={styles.playerRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {duo.provisional ? "–" : duo.rank}
+                    </Text>
+                  </View>
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {duo.names[0]} & {duo.names[1]}
+                    </Text>
+                    <Text style={styles.playerRecord}>
+                      {duo.wins}W · {duo.losses}L ·{" "}
+                      {Math.round((duo.wins / duo.matches) * 100)}%
+                      {duo.provisional ? " · provisional" : ""}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
       </ScrollView>
     </View>
   );
@@ -250,6 +338,8 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
     marginBottom: 12,
   },
   listTitle: { color: COLORS.ink, fontSize: 16, fontWeight: "800" },
+  listHeaderRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  listChevron: { color: COLORS.muted, fontSize: 11, fontWeight: "800" },
   listCountBadge: {
     minWidth: 26,
     alignItems: "center",

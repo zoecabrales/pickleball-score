@@ -21,11 +21,20 @@ export type PlayerStats = {
   pointsAgainst: number;
 };
 
+export type PairStats = {
+  id: string;
+  names: [string, string];
+  matches: number;
+  wins: number;
+  losses: number;
+};
+
 export type RankingArchive = {
   id: string;
   savedAt: string;
   totalMatches: number;
   rankings: PlayerStats[];
+  duos?: PairStats[];
 };
 
 type MatchPlayers = {
@@ -37,6 +46,7 @@ type MatchPlayers = {
 
 type RankingContextValue = {
   rankings: PlayerStats[];
+  duos: PairStats[];
   rankingArchive: RankingArchive[];
   registeredPlayers: string[];
   totalMatches: number;
@@ -67,6 +77,7 @@ function getUniquePlayerNames(names: string[]) {
 
 export function RankingProvider({ children }: { children: ReactNode }) {
   const [rankings, setRankings] = useState<PlayerStats[]>([]);
+  const [duos, setDuos] = useState<PairStats[]>([]);
   const [rankingArchive, setRankingArchive] = useState<RankingArchive[]>([]);
   const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
@@ -99,7 +110,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
             totalMatches?: unknown;
             rankingArchive?: unknown;
             registeredPlayers?: unknown;
+            duos?: unknown;
           };
+          if (Array.isArray(saved.duos)) {
+            setDuos(saved.duos as PairStats[]);
+          }
           const savedRankings = Array.isArray(saved.rankings)
             ? (saved.rankings as PlayerStats[])
             : [];
@@ -183,6 +198,36 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       updatePlayers(match.sideA, "a");
       updatePlayers(match.sideB, "b");
 
+      const duosById = new Map(
+        duos.map((duo) => [duo.id, { ...duo }] as const),
+      );
+      const updateDuo = (names: string[], side: Side) => {
+        if (names.length !== 2) return;
+        const [first, second] = names
+          .map((name) => name.trim())
+          .sort((left, right) =>
+            getPlayerId(left).localeCompare(getPlayerId(right)),
+          );
+        const id = `${getPlayerId(first)}|${getPlayerId(second)}`;
+        const current = duosById.get(id) ?? {
+          id,
+          names: [first, second] as [string, string],
+          matches: 0,
+          wins: 0,
+          losses: 0,
+        };
+        const won = side === winningSide;
+        duosById.set(id, {
+          ...current,
+          matches: current.matches + 1,
+          wins: current.wins + Number(won),
+          losses: current.losses + Number(!won),
+        });
+      };
+      updateDuo(match.sideA, "a");
+      updateDuo(match.sideB, "b");
+      const nextDuos = [...duosById.values()];
+
       const nextRankings = [...byId.values()].sort((left, right) => {
         const leftRate = left.matches ? left.wins / left.matches : 0;
         const rightRate = right.matches ? right.wins / right.matches : 0;
@@ -200,19 +245,21 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       ]);
 
       setRankings(nextRankings);
+      setDuos(nextDuos);
       setRegisteredPlayers(nextRegisteredPlayers);
       setTotalMatches(nextTotalMatches);
       await AsyncStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           rankings: nextRankings,
+          duos: nextDuos,
           registeredPlayers: nextRegisteredPlayers,
           totalMatches: nextTotalMatches,
           rankingArchive,
         }),
       );
     },
-    [rankings, rankingArchive, registeredPlayers, totalMatches],
+    [rankings, duos, rankingArchive, registeredPlayers, totalMatches],
   );
 
   const addRegisteredPlayer = useCallback(
@@ -231,6 +278,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         STORAGE_KEY,
         JSON.stringify({
           rankings,
+          duos,
           registeredPlayers: nextRegisteredPlayers,
           totalMatches,
           rankingArchive,
@@ -239,7 +287,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       setRegisteredPlayers(nextRegisteredPlayers);
       return true;
     },
-    [rankings, registeredPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, totalMatches, rankingArchive],
   );
 
   const removeRegisteredPlayer = useCallback(
@@ -254,6 +302,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         STORAGE_KEY,
         JSON.stringify({
           rankings,
+          duos,
           registeredPlayers: nextRegisteredPlayers,
           totalMatches,
           rankingArchive,
@@ -261,7 +310,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       );
       setRegisteredPlayers(nextRegisteredPlayers);
     },
-    [rankings, registeredPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, totalMatches, rankingArchive],
   );
 
   const resetRankings = useCallback(async () => {
@@ -272,6 +321,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
               id: new Date().toISOString(),
               savedAt: new Date().toISOString(),
               rankings: rankings.map((player) => ({ ...player })),
+              duos: duos.map((duo) => ({ ...duo })),
               totalMatches,
             },
             ...rankingArchive,
@@ -282,19 +332,22 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       STORAGE_KEY,
       JSON.stringify({
         rankings: [],
+        duos: [],
         registeredPlayers,
         totalMatches: 0,
         rankingArchive: nextArchive,
       }),
     );
     setRankings([]);
+    setDuos([]);
     setRankingArchive(nextArchive);
     setTotalMatches(0);
-  }, [rankings, rankingArchive, registeredPlayers, totalMatches]);
+  }, [rankings, duos, rankingArchive, registeredPlayers, totalMatches]);
 
   const wipeAllData = useCallback(async () => {
     await AsyncStorage.clear();
     setRankings([]);
+    setDuos([]);
     setRankingArchive([]);
     setRegisteredPlayers([]);
     setTotalMatches(0);
@@ -304,6 +357,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       rankings,
+      duos,
       rankingArchive,
       registeredPlayers,
       totalMatches,
@@ -317,6 +371,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     }),
     [
       rankings,
+      duos,
       rankingArchive,
       registeredPlayers,
       totalMatches,
