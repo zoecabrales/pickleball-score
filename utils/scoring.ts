@@ -41,3 +41,14 @@ export function isExtensionDecision(
 export function getWinPercentage(wins: number, matches: number) {
   return matches === 0 ? 0 : Math.round((wins / matches) * 100);
 }
+
+// Leaders of an already-sorted ladder: everyone tied with the first row.
+export function getTopRanked<T extends { wins: number; matches: number }>(
+  sortedPlayers: T[],
+): T[] {
+  const [first] = sortedPlayers;
+  if (!first) return [];
+  return sortedPlayers.filter(
+    (player) => player.wins === first.wins && player.matches === first.matches,
+  );
+}

@@ -11,7 +11,7 @@ import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
 import { useMemo } from "react";
 import { getMonthlyHighlights } from "@/utils/monthly";
-import { getWinPercentage } from "@/utils/scoring";
+import { getTopRanked, getWinPercentage } from "@/utils/scoring";
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -20,7 +20,9 @@ export default function DashboardScreen() {
   const { rankings, rankingArchive, registeredPlayers, totalMatches, isLoaded } =
     useRankings();
 
-  const leader = rankings[0];
+  const leaders = getTopRanked(rankings);
+  const leader = leaders[0];
+  const leaderNames = leaders.map((player) => player.name).join(" & ");
   const leaderRate = leader ? getWinPercentage(leader.wins, leader.matches) : 0;
   const mostActive = rankings.reduce<(typeof rankings)[number] | null>(
     (best, player) => (!best || player.matches > best.matches ? player : best),
@@ -91,13 +93,15 @@ export default function DashboardScreen() {
         <Text style={styles.heading}>Dashboard</Text>
 
         <View style={styles.leaderCard}>
-          <Text style={styles.leaderKicker}>CURRENT #1</Text>
+          <Text style={styles.leaderKicker}>
+            {leaders.length > 1 ? "CURRENT #1 (TIED)" : "CURRENT #1"}
+          </Text>
           {!isLoaded ? (
             <Text style={styles.leaderEmpty}>Loading…</Text>
           ) : leader ? (
             <>
-              <Text style={styles.leaderName} numberOfLines={1}>
-                {leader.name}
+              <Text style={styles.leaderName} numberOfLines={2}>
+                {leaderNames}
               </Text>
               <Text style={styles.leaderRecord}>
                 {leader.wins}W · {leader.losses}L · {leaderRate}% win rate

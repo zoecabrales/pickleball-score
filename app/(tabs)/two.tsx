@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
-import { getWinPercentage } from "@/utils/scoring";
+import { getTopRanked, getWinPercentage } from "@/utils/scoring";
 
 export default function RankingsScreen() {
   const insets = useSafeAreaInsets();
@@ -46,30 +46,42 @@ export default function RankingsScreen() {
     );
   };
 
-  const renderRankingRows = (players: typeof rankings) => (
+  const renderRankingRows = (players: typeof rankings) => {
+    const ranks: number[] = [];
+    players.forEach((player, index) => {
+      const previous = players[index - 1];
+      const tied =
+        previous &&
+        previous.wins === player.wins &&
+        previous.matches === player.matches;
+      ranks.push(tied ? ranks[index - 1] : index + 1);
+    });
+
+    return (
     <View style={styles.rankingList}>
       {players.map((player, index) => {
         const winRate = getWinPercentage(player.wins, player.matches);
+        const rank = ranks[index];
         return (
           <View
             key={player.id}
-            style={[styles.playerRow, index === 0 && styles.topPlayerRow]}
+            style={[styles.playerRow, rank === 1 && styles.topPlayerRow]}
           >
             <View
               style={[
                 styles.rankNumber,
-                index === 0 && styles.rankNumberGold,
-                index === 1 && styles.rankNumberSilver,
-                index === 2 && styles.rankNumberBronze,
+                rank === 1 && styles.rankNumberGold,
+                rank === 2 && styles.rankNumberSilver,
+                rank === 3 && styles.rankNumberBronze,
               ]}
             >
               <Text
                 style={[
                   styles.rankNumberText,
-                  index < 3 && styles.rankNumberMedalText,
+                  rank <= 3 && styles.rankNumberMedalText,
                 ]}
               >
-                {String(index + 1).padStart(2, "0")}
+                {String(rank).padStart(2, "0")}
               </Text>
             </View>
             <View style={styles.playerInfo}>
@@ -83,7 +95,7 @@ export default function RankingsScreen() {
               </Text>
             </View>
             <View style={styles.winRateBlock}>
-              <Text style={[styles.winRate, index === 0 && styles.winRateTop]}>
+              <Text style={[styles.winRate, rank === 1 && styles.winRateTop]}>
                 {winRate}
                 <Text style={styles.percentSign}>%</Text>
               </Text>
@@ -93,7 +105,8 @@ export default function RankingsScreen() {
         );
       })}
     </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.screen}>
@@ -170,7 +183,9 @@ export default function RankingsScreen() {
             </View>
             {rankingArchive.map((snapshot) => {
               const isExpanded = expandedArchiveId === snapshot.id;
-              const topPlayer = snapshot.rankings[0];
+              const topPlayers = getTopRanked(snapshot.rankings)
+                .map((player) => player.name)
+                .join(" & ");
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -201,7 +216,7 @@ export default function RankingsScreen() {
                       <Text style={styles.archiveMeta} numberOfLines={1}>
                         {snapshot.totalMatches}{" "}
                         {snapshot.totalMatches === 1 ? "match" : "matches"}
-                        {topPlayer ? ` · 🏆 ${topPlayer.name}` : ""}
+                        {topPlayers ? ` · 🏆 ${topPlayers}` : ""}
                       </Text>
                     </View>
                     <Text style={styles.archiveChevron}>
@@ -251,8 +266,8 @@ export default function RankingsScreen() {
             ],
             [
               "4",
-              "Still tied? Names break it.",
-              "Players with the same win rate and wins are listed alphabetically.",
+              "Still tied? They share the rank.",
+              "Players with the same record share a rank (1, 1, 3) and are listed alphabetically.",
             ],
           ].map(([step, title, detail]) => (
             <View key={step} style={styles.infoStep}>
