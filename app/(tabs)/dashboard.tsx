@@ -1,4 +1,7 @@
 import {
+    Alert,
+    Modal,
+    Pressable,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -9,9 +12,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
+import HighlightsShareCard from "@/components/HighlightsShareCard";
 import { getMonthlyHighlights } from "@/utils/monthly";
 import { getTopRanked, getWinPercentage } from "@/utils/scoring";
+import { shareViewAsImage } from "@/utils/shareImage";
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -70,6 +75,37 @@ export default function DashboardScreen() {
           : []),
       ]
     : [];
+
+  const shareDuo = highlights.duo
+    ? {
+        names: `${highlights.duo[0].name} & ${highlights.duo[1].name}`,
+        note: `${highlights.duo
+          .map((p) => `${p.name} ${Math.round(p.winRate * 100)}%`)
+          .join(" · ")} win rate`,
+      }
+    : null;
+
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<View>(null);
+
+  const shareHighlights = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    try {
+      const shared = await shareViewAsImage(
+        shareCardRef,
+        "Share monthly highlights",
+      );
+      if (!shared) {
+        Alert.alert("Sharing unavailable", "This device cannot share images.");
+      }
+    } catch {
+      Alert.alert("Could not share", "The highlights image could not be created.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const stats = [
     { label: "MATCHES TODAY", value: totalMatches },
@@ -171,10 +207,63 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
               )}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setIsShareOpen(true)}
+                style={styles.shareButton}
+              >
+                <Text style={styles.shareButtonText}>Share as image</Text>
+              </Pressable>
             </>
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        visible={isShareOpen}
+        onRequestClose={() => setIsShareOpen(false)}
+      >
+        <View style={[styles.shareScreen, { paddingTop: insets.top + 8 }]}>
+          <ScrollView
+            contentContainerStyle={styles.shareScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <HighlightsShareCard
+              ref={shareCardRef}
+              monthLabel={highlights.monthLabel}
+              awards={awards}
+              duo={shareDuo}
+              sessions={highlights.sessions}
+              matches={highlights.matches}
+            />
+          </ScrollView>
+          <View
+            style={[
+              styles.shareActions,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSharing}
+              onPress={shareHighlights}
+              style={[styles.shareButton, styles.shareActionPrimary]}
+            >
+              <Text style={styles.shareButtonText}>
+                {isSharing ? "Preparing…" : "Share image"}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsShareOpen(false)}
+              style={styles.shareClose}
+            >
+              <Text style={styles.shareCloseText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -288,6 +377,20 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
   },
   awardName: { color: COLORS.ink, fontSize: 18, fontWeight: "800", marginTop: 2 },
   awardNote: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
+  shareButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: COLORS.green,
+    paddingVertical: 13,
+    marginTop: 14,
+  },
+  shareButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  shareScreen: { flex: 1, backgroundColor: "#E4E9E3" },
+  shareScroll: { alignItems: "center", paddingVertical: 12 },
+  shareActions: { paddingHorizontal: 20, paddingTop: 8 },
+  shareActionPrimary: { marginTop: 0, marginBottom: 6 },
+  shareClose: { alignItems: "center", paddingVertical: 10 },
+  shareCloseText: { color: "#15241E", fontSize: 14, fontWeight: "700" },
   duoBox: {
     marginTop: 18,
     padding: 16,

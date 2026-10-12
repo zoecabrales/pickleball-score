@@ -79,7 +79,7 @@ Pickle Scorer is intended for casual groups, clubs, open-play organizers, and fr
 
 ## How rankings work
 
-Players are ordered by win rate (wins divided by matches played). Ties are broken by total wins, and then alphabetically by name. Players with identical wins and matches share the same rank, for example 1, 1, 3.
+Players are ordered by win rate (wins divided by matches played). Ties are broken by total wins, and then alphabetically by name. Players with identical wins and matches share the same rank, for example 1, 1, 2.
 
 Rankings are based on results within a session and reset when the session is saved. This keeps the ladder meaningful for the group playing that day. Win rate becomes more reliable as players complete more games; a handful of games gives an early indication, and ten or more gives a better picture.
 

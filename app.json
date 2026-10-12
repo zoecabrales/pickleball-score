@@ -50,7 +50,8 @@
             "webpEnabled": false
           }
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

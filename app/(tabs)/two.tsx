@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
     Alert,
+    Modal,
     Pressable,
     ScrollView,
     StatusBar,
@@ -10,9 +11,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import RankingShareCard from "@/components/RankingShareCard";
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
-import { getTopRanked, getWinPercentage } from "@/utils/scoring";
+import {
+  getSharedRanks,
+  getTopRanked,
+  getWinPercentage,
+} from "@/utils/scoring";
+import { shareViewAsImage } from "@/utils/shareImage";
 
 export default function RankingsScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +30,28 @@ export default function RankingsScreen() {
   const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(
     null,
   );
+
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<View>(null);
+
+  const shareLadder = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    try {
+      const shared = await shareViewAsImage(
+        shareCardRef,
+        "Share player ladder",
+      );
+      if (!shared) {
+        Alert.alert("Sharing unavailable", "This device cannot share images.");
+      }
+    } catch {
+      Alert.alert("Could not share", "The ladder image could not be created.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const confirmReset = () => {
     Alert.alert(
@@ -47,15 +76,7 @@ export default function RankingsScreen() {
   };
 
   const renderRankingRows = (players: typeof rankings) => {
-    const ranks: number[] = [];
-    players.forEach((player, index) => {
-      const previous = players[index - 1];
-      const tied =
-        previous &&
-        previous.wins === player.wins &&
-        previous.matches === player.matches;
-      ranks.push(tied ? ranks[index - 1] : index + 1);
-    });
+    const ranks = getSharedRanks(players);
 
     return (
     <View style={styles.rankingList}>
@@ -139,6 +160,16 @@ export default function RankingsScreen() {
             <Text style={styles.summaryBadgeText}>LOCAL</Text>
           </View>
         </View>
+
+        {isLoaded && rankings.length > 0 && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setIsShareOpen(true)}
+            style={styles.shareButton}
+          >
+            <Text style={styles.shareButtonText}>Share ladder as image</Text>
+          </Pressable>
+        )}
 
         <Pressable
           accessibilityRole="button"
@@ -267,7 +298,7 @@ export default function RankingsScreen() {
             [
               "4",
               "Still tied? They share the rank.",
-              "Players with the same record share a rank (1, 1, 3) and are listed alphabetically.",
+              "Players with the same record share a rank (1, 1, 2) and are listed alphabetically.",
             ],
           ].map(([step, title, detail]) => (
             <View key={step} style={styles.infoStep}>
@@ -290,6 +321,49 @@ export default function RankingsScreen() {
         </View>
         <Text style={styles.footer}>NO ACCOUNT · NO INTERNET · JUST PLAY</Text>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        visible={isShareOpen}
+        onRequestClose={() => setIsShareOpen(false)}
+      >
+        <View style={[styles.shareScreen, { paddingTop: insets.top + 8 }]}>
+          <ScrollView
+            contentContainerStyle={styles.shareScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <RankingShareCard
+              ref={shareCardRef}
+              players={rankings}
+              totalMatches={totalMatches}
+            />
+          </ScrollView>
+          <View
+            style={[
+              styles.shareActions,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSharing}
+              onPress={shareLadder}
+              style={[styles.shareButton, styles.shareActionPrimary]}
+            >
+              <Text style={styles.shareButtonText}>
+                {isSharing ? "Preparing…" : "Share image"}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsShareOpen(false)}
+              style={styles.shareClose}
+            >
+              <Text style={styles.shareCloseText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -359,7 +433,7 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
     alignSelf: "flex-end",
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginTop: -15,
+    marginTop: 4,
     marginBottom: 20,
     borderRadius: 11,
     backgroundColor: "#FBE9E5",
@@ -482,6 +556,20 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
     justifyContent: "center",
     marginRight: 11,
   },
+  shareButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: COLORS.green,
+    paddingVertical: 13,
+    marginBottom: 10,
+  },
+  shareButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  shareScreen: { flex: 1, backgroundColor: "#E4E9E3" },
+  shareScroll: { alignItems: "center", paddingVertical: 12 },
+  shareActions: { paddingHorizontal: 20, paddingTop: 8 },
+  shareActionPrimary: { marginBottom: 6 },
+  shareClose: { alignItems: "center", paddingVertical: 10 },
+  shareCloseText: { color: "#15241E", fontSize: 14, fontWeight: "700" },
   rankNumberGold: { backgroundColor: "#F2C94C" },
   rankNumberSilver: { backgroundColor: "#C7D0D9" },
   rankNumberBronze: { backgroundColor: "#CD8B5A" },

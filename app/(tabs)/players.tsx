@@ -57,7 +57,10 @@ export default function PlayersScreen() {
         previous.provisional === duo.provisional &&
         previous.wins === duo.wins &&
         previous.matches === duo.matches;
-      ranked.push({ ...duo, rank: tied ? previous.rank : index + 1 });
+      ranked.push({
+        ...duo,
+        rank: index === 0 ? 1 : tied ? previous.rank : previous.rank + 1,
+      });
     });
     return ranked;
   }, [duos]);

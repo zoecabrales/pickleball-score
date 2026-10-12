@@ -42,6 +42,24 @@ export function getWinPercentage(wins: number, matches: number) {
   return matches === 0 ? 0 : Math.round((wins / matches) * 100);
 }
 
+// Ranks for an already-sorted ladder. Equal wins and matches share a rank,
+// and the next distinct record gets the next number (1, 1, 2), so no medal is skipped.
+export function getSharedRanks<T extends { wins: number; matches: number }>(
+  sortedPlayers: T[],
+): number[] {
+  const ranks: number[] = [];
+  sortedPlayers.forEach((player, index) => {
+    const previous = sortedPlayers[index - 1];
+    const tied =
+      previous &&
+      previous.wins === player.wins &&
+      previous.matches === player.matches;
+    if (index === 0) ranks.push(1);
+    else ranks.push(tied ? ranks[index - 1] : ranks[index - 1] + 1);
+  });
+  return ranks;
+}
+
 // Leaders of an already-sorted ladder: everyone tied with the first row.
 export function getTopRanked<T extends { wins: number; matches: number }>(
   sortedPlayers: T[],
