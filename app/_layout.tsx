@@ -30,6 +30,8 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+const BRAND_SPLASH_DURATION_MS = 2000;
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -44,7 +46,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      const timer = setTimeout(() => setShowBrandSplash(false), 1100);
+      const timer = setTimeout(
+        () => setShowBrandSplash(false),
+        BRAND_SPLASH_DURATION_MS,
+      );
       return () => clearTimeout(timer);
     }
   }, [loaded]);
