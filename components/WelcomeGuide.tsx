@@ -15,7 +15,7 @@ const STEPS: Step[] = [
   {
     tab: "1 · PLAYERS TAB",
     title: "Add your players first",
-    body: "Register everyone in your group so you can pick them quickly later. Tournament mode needs at least 4 registered players.",
+    body: "Register everyone in your group so you can pick them quickly later. Tournament mode needs at least 4 registered players marked Ready.",
     tip: "Players stay on the list even after you reset the rankings.",
   },
   {

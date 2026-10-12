@@ -27,6 +27,8 @@ export default function PlayersScreen() {
     duos,
     addRegisteredPlayer,
     removeRegisteredPlayer,
+    absentPlayers,
+    setPlayerPresent,
     isLoaded,
   } = useRankings();
   const [draft, setDraft] = useState("");
@@ -187,6 +189,9 @@ export default function PlayersScreen() {
               const stats = rankings.find(
                 (player) => player.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
               );
+              const isPresent = !absentPlayers.some(
+                (absent) => absent.toLocaleLowerCase() === name.toLocaleLowerCase(),
+              );
               return (
                 <View key={name.toLocaleLowerCase()} style={styles.playerRow}>
                   <View style={styles.avatar}>
@@ -204,6 +209,29 @@ export default function PlayersScreen() {
                         : "No matches yet"}
                     </Text>
                   </View>
+                  <Pressable
+                    accessibilityLabel={`${name} is ${isPresent ? "ready" : "not ready"}. Tap to mark ${isPresent ? "not ready" : "ready"}`}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => {
+                      void setPlayerPresent(name, !isPresent).catch(() => {
+                        Alert.alert("Could not update player", "Please try again.");
+                      });
+                    }}
+                    style={[
+                      styles.readyButton,
+                      !isPresent && styles.notReadyButton,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.readyButtonText,
+                        !isPresent && styles.notReadyButtonText,
+                      ]}
+                    >
+                      {isPresent ? "Ready" : "Not ready"}
+                    </Text>
+                  </Pressable>
                   <Pressable
                     accessibilityLabel={`Remove ${name}`}
                     accessibilityRole="button"
@@ -374,6 +402,18 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
   playerInfo: { flex: 1, minWidth: 0 },
   playerName: { color: COLORS.ink, fontSize: 14, fontWeight: "700" },
   playerRecord: { color: COLORS.muted, fontSize: 11, marginTop: 2 },
+  readyButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.paleGreen,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginRight: 6,
+  },
+  notReadyButton: { borderColor: COLORS.line, backgroundColor: COLORS.background },
+  readyButtonText: { color: COLORS.green, fontSize: 11, fontWeight: "800" },
+  notReadyButtonText: { color: COLORS.muted },
   removeButton: {
     borderRadius: 10,
     borderWidth: 1,

@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import PlayerNamePicker from "@/components/PlayerNamePicker";
+import PlayHint from "@/components/PlayHint";
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
 import { getNextBalancedDoublesTeams } from "@/utils/doubles";
@@ -41,6 +42,7 @@ export default function PlayScreen() {
     isLoaded,
     rankings,
     registeredPlayers,
+    absentPlayers,
     recordMatch,
     totalMatches,
     wipeCount,
@@ -66,12 +68,20 @@ export default function PlayScreen() {
   const isTournament = playCategory === "tournament";
   const isDoubles = isTournament || mode === "doubles";
   // Memoized so the random first-round lineup stays stable while scoring.
+  const presentPlayers = useMemo(() => {
+    const absentIds = new Set(
+      absentPlayers.map((name) => name.toLocaleLowerCase()),
+    );
+    return registeredPlayers.filter(
+      (name) => !absentIds.has(name.toLocaleLowerCase()),
+    );
+  }, [registeredPlayers, absentPlayers]);
   const balancedTeams = useMemo(
     () =>
       isTournament
-        ? getNextBalancedDoublesTeams(rankings, registeredPlayers)
+        ? getNextBalancedDoublesTeams(rankings, presentPlayers)
         : null,
-    [isTournament, rankings, registeredPlayers],
+    [isTournament, rankings, presentPlayers],
   );
   const lineupPlayers = isTournament
     ? winner
@@ -253,6 +263,14 @@ export default function PlayScreen() {
           </View>
         </View>
 
+        <PlayHint
+          hasPlayers={isTournament ? Boolean(balancedTeams) : namesAreValid}
+          hasWinner={Boolean(winner)}
+          isDoubles={isDoubles}
+          isTournament={isTournament}
+          started={started}
+        />
+
         <View style={styles.modeSwitch}>
           {(["session", "tournament"] as PlayCategory[]).map((option) => (
             <Pressable
@@ -325,8 +343,8 @@ export default function PlayScreen() {
             <Text style={styles.tournamentStatusTitle}>TOURNAMENT LINEUP</Text>
             <Text style={styles.tournamentStatusText}>
               {balancedTeams
-                ? `${registeredPlayers.length} registered · ${totalMatches === 0 ? "random first lineup" : "balanced by games played and ranking"}`
-                : "Register at least four players to start a tournament"}
+                ? `${presentPlayers.length} ready · ${totalMatches === 0 ? "random first lineup" : "balanced by games played and ranking"}`
+                : "Mark at least four registered players as Ready to start a tournament"}
             </Text>
           </View>
         )}

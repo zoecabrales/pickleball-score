@@ -49,8 +49,10 @@ type RankingContextValue = {
   duos: PairStats[];
   rankingArchive: RankingArchive[];
   registeredPlayers: string[];
+  absentPlayers: string[];
   totalMatches: number;
   isLoaded: boolean;
+  setPlayerPresent: (name: string, present: boolean) => Promise<void>;
   addRegisteredPlayer: (name: string) => Promise<boolean>;
   removeRegisteredPlayer: (name: string) => Promise<void>;
   recordMatch: (match: MatchPlayers) => Promise<void>;
@@ -80,6 +82,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const [duos, setDuos] = useState<PairStats[]>([]);
   const [rankingArchive, setRankingArchive] = useState<RankingArchive[]>([]);
   const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
+  const [absentPlayers, setAbsentPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [wipeCount, setWipeCount] = useState(0);
@@ -111,7 +114,15 @@ export function RankingProvider({ children }: { children: ReactNode }) {
             rankingArchive?: unknown;
             registeredPlayers?: unknown;
             duos?: unknown;
+            absentPlayers?: unknown;
           };
+          if (Array.isArray(saved.absentPlayers)) {
+            setAbsentPlayers(
+              saved.absentPlayers.filter(
+                (name): name is string => typeof name === "string",
+              ),
+            );
+          }
           if (Array.isArray(saved.duos)) {
             setDuos(saved.duos as PairStats[]);
           }
@@ -256,10 +267,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           registeredPlayers: nextRegisteredPlayers,
           totalMatches: nextTotalMatches,
           rankingArchive,
+          absentPlayers,
         }),
       );
     },
-    [rankings, duos, rankingArchive, registeredPlayers, totalMatches],
+    [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches],
   );
 
   const addRegisteredPlayer = useCallback(
@@ -282,12 +294,13 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           registeredPlayers: nextRegisteredPlayers,
           totalMatches,
           rankingArchive,
+          absentPlayers,
         }),
       );
       setRegisteredPlayers(nextRegisteredPlayers);
       return true;
     },
-    [rankings, duos, registeredPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
   );
 
   const removeRegisteredPlayer = useCallback(
@@ -306,11 +319,33 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           registeredPlayers: nextRegisteredPlayers,
           totalMatches,
           rankingArchive,
+          absentPlayers,
         }),
       );
       setRegisteredPlayers(nextRegisteredPlayers);
     },
-    [rankings, duos, registeredPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
+  );
+
+  const setPlayerPresent = useCallback(
+    async (rawName: string, present: boolean) => {
+      const id = getPlayerId(rawName);
+      const others = absentPlayers.filter((name) => getPlayerId(name) !== id);
+      const nextAbsent = present ? others : [...others, rawName.trim()];
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rankings,
+          duos,
+          registeredPlayers,
+          totalMatches,
+          rankingArchive,
+          absentPlayers: nextAbsent,
+        }),
+      );
+      setAbsentPlayers(nextAbsent);
+    },
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
   );
 
   const resetRankings = useCallback(async () => {
@@ -336,13 +371,14 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         registeredPlayers,
         totalMatches: 0,
         rankingArchive: nextArchive,
+        absentPlayers,
       }),
     );
     setRankings([]);
     setDuos([]);
     setRankingArchive(nextArchive);
     setTotalMatches(0);
-  }, [rankings, duos, rankingArchive, registeredPlayers, totalMatches]);
+  }, [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches]);
 
   const wipeAllData = useCallback(async () => {
     await AsyncStorage.clear();
@@ -350,6 +386,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     setDuos([]);
     setRankingArchive([]);
     setRegisteredPlayers([]);
+    setAbsentPlayers([]);
     setTotalMatches(0);
     setWipeCount((count) => count + 1);
   }, []);
@@ -360,6 +397,8 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       duos,
       rankingArchive,
       registeredPlayers,
+      absentPlayers,
+      setPlayerPresent,
       totalMatches,
       isLoaded,
       addRegisteredPlayer,
@@ -374,6 +413,8 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       duos,
       rankingArchive,
       registeredPlayers,
+      absentPlayers,
+      setPlayerPresent,
       totalMatches,
       isLoaded,
       addRegisteredPlayer,
