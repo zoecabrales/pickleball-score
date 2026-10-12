@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pickle Scorer",
     "slug": "pickle-scorer",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "orientation": "portrait",
     "icon": "./assets/images/pickle-scorer-icon.png",
     "scheme": "picklescorer",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.zoecabrales.picklescorer",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#0D3D29",
         "foregroundImage": "./assets/images/pickle-scorer-adaptive-foreground.png",
