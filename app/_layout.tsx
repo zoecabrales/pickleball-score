@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import "react-native-reanimated";
 
+import { GuideProvider } from "@/context/GuideContext";
 import { RankingProvider } from "@/context/RankingContext";
 import { AppThemeProvider, useAppTheme } from "@/context/ThemeContext";
 
@@ -85,7 +86,9 @@ function RootLayoutNav() {
   return (
     <AppThemeProvider>
       <RankingProvider>
-        <ThemedStack />
+        <GuideProvider>
+          <ThemedStack />
+        </GuideProvider>
       </RankingProvider>
     </AppThemeProvider>
   );

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useGuide } from "@/context/GuideContext";
 import { useRankings } from "@/context/RankingContext";
 import { Palette, THEMES, useAppTheme } from "@/context/ThemeContext";
 
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { wipeAllData, isLoaded, registeredPlayers, rankingArchive, totalMatches } =
     useRankings();
+  const { showGuide } = useGuide();
   const [isWiping, setIsWiping] = useState(false);
 
   const runWipe = async () => {
@@ -111,6 +113,18 @@ export default function SettingsScreen() {
               </Pressable>
             );
           })}
+        </View>
+
+        <Text style={styles.sectionTitle}>Help</Text>
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={showGuide}
+            style={styles.themeRow}
+          >
+            <Text style={styles.themeName}>Replay welcome guide</Text>
+            <Text style={styles.check}>›</Text>
+          </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Stored on this device</Text>
