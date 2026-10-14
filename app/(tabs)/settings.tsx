@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
     Alert,
@@ -123,6 +124,30 @@ export default function SettingsScreen() {
             style={styles.themeRow}
           >
             <Text style={styles.themeName}>Replay welcome guide</Text>
+            <Text style={styles.check}>›</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push("../legal/terms")
+            }
+            style={styles.themeRow}
+          >
+            <Text style={styles.themeName}>Terms and Conditions</Text>
+            <Text style={styles.check}>›</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push("../legal/privacy")
+            }
+            style={[styles.themeRow, styles.infoRowBorder]}
+          >
+            <Text style={styles.themeName}>Privacy Policy</Text>
             <Text style={styles.check}>›</Text>
           </Pressable>
         </View>

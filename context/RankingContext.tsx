@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState, Alert } from "react-native";
 import {
     createContext,
     ReactNode,
@@ -64,6 +65,18 @@ type RankingContextValue = {
 const STORAGE_KEY = "pickleball-score:individual-rankings:v1";
 const RankingContext = createContext<RankingContextValue | null>(null);
 
+function getLocalDayKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDayArchiveDate(dayKey: string) {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
 function getPlayerId(name: string) {
   return name.trim().toLocaleLowerCase();
 }
@@ -84,7 +97,16 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
   const [absentPlayers, setAbsentPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [activeDay, setActiveDay] = useState(() =>
+    getLocalDayKey(new Date()),
+  );
+  const [currentDay, setCurrentDay] = useState(() =>
+    getLocalDayKey(new Date()),
+  );
+  const [rolloverFailed, setRolloverFailed] = useState(false);
+  const isLoaded =
+    hasLoaded && (currentDay <= activeDay || rolloverFailed);
   const [wipeCount, setWipeCount] = useState(0);
 
   useEffect(() => {
@@ -115,6 +137,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
             registeredPlayers?: unknown;
             duos?: unknown;
             absentPlayers?: unknown;
+            rankingDay?: unknown;
           };
           if (Array.isArray(saved.absentPlayers)) {
             setAbsentPlayers(
@@ -122,6 +145,14 @@ export function RankingProvider({ children }: { children: ReactNode }) {
                 (name): name is string => typeof name === "string",
               ),
             );
+          }
+          if (
+            typeof saved.rankingDay === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(saved.rankingDay) &&
+            getLocalDayKey(getDayArchiveDate(saved.rankingDay)) ===
+              saved.rankingDay
+          ) {
+            setActiveDay(saved.rankingDay);
           }
           if (Array.isArray(saved.duos)) {
             setDuos(saved.duos as PairStats[]);
@@ -161,13 +192,120 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         // A corrupted local value should not prevent a new offline season.
       })
       .finally(() => {
-        if (isMounted) setIsLoaded(true);
+        if (isMounted) setHasLoaded(true);
       });
 
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let isMounted = true;
+
+    const updateCurrentDay = () => {
+      const nextDay = getLocalDayKey(new Date());
+      setCurrentDay(nextDay);
+      setRolloverFailed(false);
+    };
+
+    const scheduleMidnightCheck = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+      );
+      timer = setTimeout(() => {
+        if (!isMounted) return;
+        updateCurrentDay();
+        scheduleMidnightCheck();
+      }, nextMidnight.getTime() - now.getTime() + 50);
+    };
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") updateCurrentDay();
+    });
+    scheduleMidnightCheck();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+      subscription.remove();
+    };
+  }, []);
+
+  const archiveAndResetRankings = useCallback(
+    async (savedAt: Date, nextDay: string) => {
+      const nextArchive =
+        rankings.length > 0 || totalMatches > 0
+          ? [
+              {
+                id: new Date().toISOString(),
+                savedAt: savedAt.toISOString(),
+                rankings: rankings.map((player) => ({ ...player })),
+                duos: duos.map((duo) => ({ ...duo })),
+                totalMatches,
+              },
+              ...rankingArchive,
+            ]
+          : rankingArchive;
+
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          rankings: [],
+          duos: [],
+          registeredPlayers,
+          totalMatches: 0,
+          rankingArchive: nextArchive,
+          absentPlayers,
+          rankingDay: nextDay,
+        }),
+      );
+      setRankings([]);
+      setDuos([]);
+      setRankingArchive(nextArchive);
+      setTotalMatches(0);
+      setActiveDay(nextDay);
+    },
+    [
+      rankings,
+      totalMatches,
+      duos,
+      rankingArchive,
+      registeredPlayers,
+      absentPlayers,
+    ],
+  );
+
+  useEffect(() => {
+    if (!hasLoaded || currentDay <= activeDay || rolloverFailed) {
+      return;
+    }
+
+    let isMounted = true;
+    void archiveAndResetRankings(getDayArchiveDate(activeDay), currentDay)
+      .catch(() => {
+        if (!isMounted) return;
+        setRolloverFailed(true);
+        Alert.alert(
+          "Could not save previous rankings",
+          "Your current ladder is still available. Reopen the app to retry, or use Save Today & Start Fresh.",
+        );
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    hasLoaded,
+    activeDay,
+    currentDay,
+    rolloverFailed,
+    archiveAndResetRankings,
+  ]);
 
   const recordMatch = useCallback(
     async (match: MatchPlayers) => {
@@ -268,10 +406,11 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           totalMatches: nextTotalMatches,
           rankingArchive,
           absentPlayers,
+          rankingDay: activeDay,
         }),
       );
     },
-    [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches],
+    [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches, activeDay],
   );
 
   const addRegisteredPlayer = useCallback(
@@ -295,12 +434,13 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           totalMatches,
           rankingArchive,
           absentPlayers,
+          rankingDay: activeDay,
         }),
       );
       setRegisteredPlayers(nextRegisteredPlayers);
       return true;
     },
-    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive, activeDay],
   );
 
   const removeRegisteredPlayer = useCallback(
@@ -320,11 +460,12 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           totalMatches,
           rankingArchive,
           absentPlayers,
+          rankingDay: activeDay,
         }),
       );
       setRegisteredPlayers(nextRegisteredPlayers);
     },
-    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive, activeDay],
   );
 
   const setPlayerPresent = useCallback(
@@ -341,44 +482,17 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           totalMatches,
           rankingArchive,
           absentPlayers: nextAbsent,
+          rankingDay: activeDay,
         }),
       );
       setAbsentPlayers(nextAbsent);
     },
-    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive],
+    [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive, activeDay],
   );
 
   const resetRankings = useCallback(async () => {
-    const nextArchive =
-      rankings.length > 0 || totalMatches > 0
-        ? [
-            {
-              id: new Date().toISOString(),
-              savedAt: new Date().toISOString(),
-              rankings: rankings.map((player) => ({ ...player })),
-              duos: duos.map((duo) => ({ ...duo })),
-              totalMatches,
-            },
-            ...rankingArchive,
-          ]
-        : rankingArchive;
-
-    await AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        rankings: [],
-        duos: [],
-        registeredPlayers,
-        totalMatches: 0,
-        rankingArchive: nextArchive,
-        absentPlayers,
-      }),
-    );
-    setRankings([]);
-    setDuos([]);
-    setRankingArchive(nextArchive);
-    setTotalMatches(0);
-  }, [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches]);
+    await archiveAndResetRankings(new Date(), currentDay);
+  }, [archiveAndResetRankings, currentDay]);
 
   const wipeAllData = useCallback(async () => {
     await AsyncStorage.clear();
@@ -388,8 +502,9 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     setRegisteredPlayers([]);
     setAbsentPlayers([]);
     setTotalMatches(0);
+    setActiveDay(currentDay);
     setWipeCount((count) => count + 1);
-  }, []);
+  }, [currentDay]);
 
   const value = useMemo(
     () => ({

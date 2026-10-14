@@ -46,4 +46,4 @@ If the app changes in a way that affects how data is handled, such as adding clo
 
 ## Contact
 
-If you have questions about this policy, contact: [YOUR CONTACT EMAIL]
+If you have questions about this policy, contact: jirehzoe@gmail.com

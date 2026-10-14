@@ -62,6 +62,7 @@ Pickle Scorer is intended for casual groups, clubs, open-play organizers, and fr
 - A ladder ordered by win rate, then total wins, then name.
 - Shared ranks when players have identical records.
 - A save and reset action that archives the current session and starts a fresh one while keeping the roster.
+- Automatically archives the current ladder and starts a fresh ranking day after local midnight, including when the app is reopened later.
 - An archive of previous sessions.
 
 ### Dashboard and settings
@@ -81,7 +82,7 @@ Pickle Scorer is intended for casual groups, clubs, open-play organizers, and fr
 
 Players are ordered by win rate (wins divided by matches played). Ties are broken by total wins, and then alphabetically by name. Players with identical wins and matches share the same rank, for example 1, 1, 2.
 
-Rankings are based on results within a session and reset when the session is saved. This keeps the ladder meaningful for the group playing that day. Win rate becomes more reliable as players complete more games; a handful of games gives an early indication, and ten or more gives a better picture.
+Rankings are based on results within a session and reset when the session is saved or the local calendar day ends. If the app is closed at midnight, it saves and resets the ladder the next time the app is opened. This keeps the ladder meaningful for the group playing that day. Win rate becomes more reliable as players complete more games; a handful of games gives an early indication, and ten or more gives a better picture.
 
 ## Privacy and data
 

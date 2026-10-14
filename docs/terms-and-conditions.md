@@ -38,4 +38,4 @@ These terms are governed by the laws of the Philippines, without regard to confl
 
 ## Contact
 
-For questions about these terms, contact: [YOUR CONTACT EMAIL]
+For questions about these terms, contact: jirehzoe@gmail.com
