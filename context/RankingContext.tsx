@@ -425,6 +425,8 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      // New players start Not ready so they don't join an in-progress tournament.
+      const nextAbsent = [...absentPlayers, name];
       await AsyncStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
@@ -433,11 +435,12 @@ export function RankingProvider({ children }: { children: ReactNode }) {
           registeredPlayers: nextRegisteredPlayers,
           totalMatches,
           rankingArchive,
-          absentPlayers,
+          absentPlayers: nextAbsent,
           rankingDay: activeDay,
         }),
       );
       setRegisteredPlayers(nextRegisteredPlayers);
+      setAbsentPlayers(nextAbsent);
       return true;
     },
     [rankings, duos, registeredPlayers, absentPlayers, totalMatches, rankingArchive, activeDay],
