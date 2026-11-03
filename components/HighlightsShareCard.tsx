@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type HostInstance } from "react-native";
 
 export type ShareAward = {
   icon: string;
@@ -17,7 +17,7 @@ type HighlightsShareCardProps = {
 };
 
 // Fixed light colors so the shared image looks the same in any app theme.
-const HighlightsShareCard = forwardRef<View, HighlightsShareCardProps>(
+const HighlightsShareCard = forwardRef<HostInstance, HighlightsShareCardProps>(
   function HighlightsShareCard(
     { monthLabel, awards, duo, sessions, matches },
     ref,

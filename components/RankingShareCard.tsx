@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type HostInstance } from "react-native";
 
 import { getSharedRanks, getWinPercentage } from "@/utils/scoring";
 
@@ -23,7 +23,7 @@ const MEDAL_COLORS: Record<number, string> = {
 };
 
 // Fixed light colors so the shared image looks the same in any app theme.
-const RankingShareCard = forwardRef<View, RankingShareCardProps>(
+const RankingShareCard = forwardRef<HostInstance, RankingShareCardProps>(
   function RankingShareCard({ players, totalMatches }, ref) {
     const ranks = getSharedRanks(players);
     const dateLabel = new Date().toLocaleDateString(undefined, {

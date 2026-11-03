@@ -7,6 +7,7 @@ import {
     StyleSheet,
     Text,
     View,
+    type HostInstance,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -87,7 +88,7 @@ export default function DashboardScreen() {
 
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const shareCardRef = useRef<View>(null);
+  const shareCardRef = useRef<HostInstance>(null);
 
   const shareHighlights = async () => {
     if (isSharing) return;
