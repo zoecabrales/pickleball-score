@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import RankingShareCard from "@/components/RankingShareCard";
+import RatingsView from "@/components/RatingsView";
 import { useRankings } from "@/context/RankingContext";
 import { Palette, useAppTheme } from "@/context/ThemeContext";
 import {
@@ -26,8 +27,9 @@ export default function RankingsScreen() {
   const insets = useSafeAreaInsets();
   const { colors: COLORS, isDark } = useAppTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { rankings, rankingArchive, totalMatches, isLoaded, resetRankings } =
+  const { rankings, rankingArchive, ratings, totalMatches, isLoaded, resetRankings } =
     useRankings();
+  const [view, setView] = useState<"ladder" | "ratings">("ladder");
   const [expandedArchiveId, setExpandedArchiveId] = useState<string | null>(
     null,
   );
@@ -147,6 +149,30 @@ export default function RankingsScreen() {
           Every player earns their own place on the ladder.
         </Text>
 
+        <View style={styles.viewSwitch}>
+          {(["ladder", "ratings"] as const).map((option) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: view === option }}
+              key={option}
+              onPress={() => setView(option)}
+              style={[
+                styles.viewButton,
+                view === option && styles.viewButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.viewButtonText,
+                  view === option && styles.viewButtonTextActive,
+                ]}
+              >
+                {option === "ladder" ? "Ladder" : "Ratings"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <View style={styles.summaryCard}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryNumber}>{rankings.length}</Text>
@@ -162,6 +188,10 @@ export default function RankingsScreen() {
           </View>
         </View>
 
+        {isLoaded && view === "ratings" ? (
+          <RatingsView ratings={ratings} />
+        ) : (
+        <>
         {isLoaded && rankings.length > 0 && (
           <Pressable
             accessibilityRole="button"
@@ -320,6 +350,8 @@ export default function RankingsScreen() {
             Your match records stay offline on this device.
           </Text>
         </View>
+        </>
+        )}
         <Text style={styles.footer}>NO ACCOUNT · NO INTERNET · JUST PLAY</Text>
       </ScrollView>
 
@@ -394,9 +426,25 @@ const createStyles = (COLORS: Palette) => StyleSheet.create({
     borderRadius: 21,
     paddingVertical: 19,
     paddingHorizontal: 17,
-    marginTop: 22,
+    marginTop: 14,
     marginBottom: 26,
   },
+  viewSwitch: {
+    flexDirection: "row",
+    backgroundColor: COLORS.line,
+    borderRadius: 14,
+    padding: 4,
+    marginTop: 18,
+  },
+  viewButton: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: 11,
+    paddingVertical: 10,
+  },
+  viewButtonActive: { backgroundColor: COLORS.card },
+  viewButtonText: { color: COLORS.muted, fontSize: 14, fontWeight: "700" },
+  viewButtonTextActive: { color: COLORS.ink },
   summaryItem: { minWidth: 75 },
   summaryNumber: {
     color: "#FFFFFF",

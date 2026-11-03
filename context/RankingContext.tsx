@@ -10,6 +10,12 @@ import {
     useState,
 } from "react";
 
+import {
+  applyMatchToRatings,
+  sanitizeRatingBook,
+  type RatingBook,
+} from "@/utils/rating";
+
 type Side = "a" | "b";
 
 export type PlayerStats = {
@@ -49,6 +55,7 @@ type RankingContextValue = {
   rankings: PlayerStats[];
   duos: PairStats[];
   rankingArchive: RankingArchive[];
+  ratings: RatingBook;
   registeredPlayers: string[];
   absentPlayers: string[];
   totalMatches: number;
@@ -63,6 +70,8 @@ type RankingContextValue = {
 };
 
 const STORAGE_KEY = "pickleball-score:individual-rankings:v1";
+// Ratings outlive daily ladder resets, so they are stored separately.
+const RATINGS_STORAGE_KEY = "pickleball-score:ratings:v1";
 const RankingContext = createContext<RankingContextValue | null>(null);
 
 function getLocalDayKey(date: Date) {
@@ -94,10 +103,12 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   const [rankings, setRankings] = useState<PlayerStats[]>([]);
   const [duos, setDuos] = useState<PairStats[]>([]);
   const [rankingArchive, setRankingArchive] = useState<RankingArchive[]>([]);
+  const [ratings, setRatings] = useState<RatingBook>({});
   const [registeredPlayers, setRegisteredPlayers] = useState<string[]>([]);
   const [absentPlayers, setAbsentPlayers] = useState<string[]>([]);
   const [totalMatches, setTotalMatches] = useState(0);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [ratingsLoaded, setRatingsLoaded] = useState(false);
   const [activeDay, setActiveDay] = useState(() =>
     getLocalDayKey(new Date()),
   );
@@ -106,8 +117,31 @@ export function RankingProvider({ children }: { children: ReactNode }) {
   );
   const [rolloverFailed, setRolloverFailed] = useState(false);
   const isLoaded =
-    hasLoaded && (currentDay <= activeDay || rolloverFailed);
+    hasLoaded &&
+    ratingsLoaded &&
+    (currentDay <= activeDay || rolloverFailed);
   const [wipeCount, setWipeCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    AsyncStorage.getItem(RATINGS_STORAGE_KEY)
+      .then((stored) => {
+        if (stored && isMounted) {
+          setRatings(sanitizeRatingBook(JSON.parse(stored)));
+        }
+      })
+      .catch(() => {
+        // Ratings are an estimate, so unreadable data simply starts fresh.
+      })
+      .finally(() => {
+        if (isMounted) setRatingsLoaded(true);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -387,6 +421,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
         );
       });
       const nextTotalMatches = totalMatches + 1;
+      const nextRatings = applyMatchToRatings(ratings, match, activeDay);
       const nextRegisteredPlayers = getUniquePlayerNames([
         ...registeredPlayers,
         ...match.sideA,
@@ -395,22 +430,35 @@ export function RankingProvider({ children }: { children: ReactNode }) {
 
       setRankings(nextRankings);
       setDuos(nextDuos);
+      setRatings(nextRatings);
       setRegisteredPlayers(nextRegisteredPlayers);
       setTotalMatches(nextTotalMatches);
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          rankings: nextRankings,
-          duos: nextDuos,
-          registeredPlayers: nextRegisteredPlayers,
-          totalMatches: nextTotalMatches,
-          rankingArchive,
-          absentPlayers,
-          rankingDay: activeDay,
-        }),
-      );
+      await AsyncStorage.multiSet([
+        [RATINGS_STORAGE_KEY, JSON.stringify(nextRatings)],
+        [
+          STORAGE_KEY,
+          JSON.stringify({
+            rankings: nextRankings,
+            duos: nextDuos,
+            registeredPlayers: nextRegisteredPlayers,
+            totalMatches: nextTotalMatches,
+            rankingArchive,
+            absentPlayers,
+            rankingDay: activeDay,
+          }),
+        ],
+      ]);
     },
-    [rankings, duos, rankingArchive, registeredPlayers, absentPlayers, totalMatches, activeDay],
+    [
+      rankings,
+      duos,
+      ratings,
+      rankingArchive,
+      registeredPlayers,
+      absentPlayers,
+      totalMatches,
+      activeDay,
+    ],
   );
 
   const addRegisteredPlayer = useCallback(
@@ -502,6 +550,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
     setRankings([]);
     setDuos([]);
     setRankingArchive([]);
+    setRatings({});
     setRegisteredPlayers([]);
     setAbsentPlayers([]);
     setTotalMatches(0);
@@ -514,6 +563,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       rankings,
       duos,
       rankingArchive,
+      ratings,
       registeredPlayers,
       absentPlayers,
       setPlayerPresent,
@@ -530,6 +580,7 @@ export function RankingProvider({ children }: { children: ReactNode }) {
       rankings,
       duos,
       rankingArchive,
+      ratings,
       registeredPlayers,
       absentPlayers,
       setPlayerPresent,
